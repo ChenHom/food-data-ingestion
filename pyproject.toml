@@ -9,7 +9,9 @@ description = "Standalone food data ingestion project"
 readme = "README.md"
 requires-python = ">=3.11"
 
-dependencies = []
+dependencies = [
+    "psycopg>=3.3",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
