@@ -31,6 +31,10 @@
 - 基本 job 記錄：建立 / 更新 `crawl_jobs`
 - 可重複執行的 smoke test 與 pytest 測試
 
+補充說明：
+- `contents`、`content_restaurant_links`、`review_aspects`、`tags` 相關資料表屬於第一版 schema 預留範圍
+- 但它們**不屬於首波 Phase 1–5 驗收交付內容**；首波仍以 Google Places → restaurant ingestion 鏈為主
+
 ### 2.2 Out of Scope
 
 以下不在本次第一版交付內：
@@ -204,6 +208,7 @@ class RawDocumentRepository:
 - `cache_entry_id`、`crawl_job_id`、`source_target_id` 有就帶
 - `content_hash` 必須可重算
 - `parser_version` 第一版允許為 `NULL`，等 parser 真正上線後開始填固定版本值
+- `raw_documents` 落地時至少要有 `raw_json` / `raw_text` / `raw_html` 其中一種內容，不可寫入空殼 row
 
 ### 4.6 `storage/restaurant_repository.py`
 
@@ -216,6 +221,8 @@ class RawDocumentRepository:
 - restaurant 主表不能綁死特定平台欄位
 - 外部平台 id 一律走 `restaurant_external_refs`
 - parser 層先輸出 normalized model，再由 repository 決定 SQL 寫入
+- upsert 前必須先查 `restaurant_external_refs`；找到對應 `restaurant_id` 才更新 `restaurants`，找不到才 insert
+- 第一版不建議在 `restaurants` 主表上硬加 address/name 類 composite unique constraint，以免因地址格式差異造成誤判
 
 ### 4.7 `storage/crawl_job_repository.py`
 
@@ -355,12 +362,30 @@ python -m food_data_ingestion.jobs.run_google_places_sync --place-id <PLACE_ID>
 - `content_hash`
 - `fetched_at`
 - `source_meta`
+- `request_fingerprint`
 
 失敗時建議欄位：
 - `is_error=True`
 - `error_message`
 - `status_code`
 - `expires_at`
+
+### 5.1.1 `request_fingerprint` 定義
+
+用途：
+- 識別「是否為同一個邏輯請求」
+- 與 `content_hash` 分工：前者代表請求等價，後者代表內容等價
+
+第一版建議組成：
+- `provider`
+- `resource_type`
+- canonicalized `request_params`
+- `normalized_url`（若有）
+
+規格要求：
+- `request_fingerprint` 建議採 `SHA-256`
+- 計算邏輯必須集中實作，不可在不同 connector 各自拼裝
+- 同一 logical request 重跑時應得到相同 fingerprint
 
 ## 5.2 Raw document 契約
 
@@ -370,13 +395,19 @@ python -m food_data_ingestion.jobs.run_google_places_sync --place-id <PLACE_ID>
 - `document_type`
 - `source_url`
 - `external_id`
+- `parent_external_id`
 - `http_status`
 - `fetched_at`
 - `raw_json` 或 `raw_text` 或 `raw_html`
 - `response_headers`
 - `content_hash`
 - `parser_version`
+- `parsed_at`
 - `cache_entry_id`（如果由 connector 流程產生）
+
+補充說明：
+- `parent_external_id` 用於表達來源內容的父子關係，例如 reply/comment 隸屬某 post、review item 隸屬某 parent entity
+- 第一版 Google Places place detail ingestion 可不填，但 schema 與 repository 必須保留這個欄位的傳遞能力
 
 ### 5.2.1 `content_hash` 定義
 
@@ -392,7 +423,35 @@ python -m food_data_ingestion.jobs.run_google_places_sync --place-id <PLACE_ID>
 - canonical serialization 必須保證 key order 穩定
 - 相同語意內容在重跑時應得到相同 hash
 
-## 5.3 Parsed restaurant 契約
+## 5.3 Source target policy 契約
+
+`ingestion.source_targets.crawl_policy` 是 target-level 的抓取策略覆寫欄位，用來承接來源頻率控制、cooldown 與 target 特例設定。
+
+第一版定位：
+- connector / service 有一份內建 default policy
+- `crawl_policy` 作為 target-level override
+- 若 `crawl_policy` 與 connector default 同時存在，以 `crawl_policy` 覆蓋
+
+第一版建議 JSON 結構：
+
+```json
+{
+  "enabled": true,
+  "ttl_seconds": 21600,
+  "refresh_after_seconds": 10800,
+  "cooldown_seconds": 600,
+  "max_retries": 3,
+  "rate_limit_bucket": "google_places_default",
+  "lock_scope": "platform_resource_identifier"
+}
+```
+
+規格要求：
+- 第一版至少需支援讀取 `ttl_seconds`、`refresh_after_seconds`、`cooldown_seconds`、`max_retries`
+- `crawl_policy` 不可淪為裝飾欄位；若 schema 保留此欄位，service / connector 必須定義讀取點
+- 所有 JSON key 命名採 snake_case
+
+## 5.4 Parsed restaurant 契約
 
 parser 輸出應是「normalized domain model」，而不是 SQL row string。
 

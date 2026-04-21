@@ -125,13 +125,24 @@
 
 ## 四、第一版建議實作順序
 
+### 4.1 首波交付（以 implementation-spec Phase 1–5 為準）
+
 1. DB adapter
 2. cache service
 3. Google Places connector
 4. raw parser pipeline
-5. article scraper
-6. restaurant matcher
-7. IG / Threads / Maps PoC connectors
+5. restaurant persistence / end-to-end ingestion service
+
+### 4.2 後續 phase
+
+6. article scraper
+7. restaurant matcher
+8. contents / tags / aspects pipeline
+9. IG / Threads / Maps PoC connectors
+
+補充說明：
+- 本文件描述的是整體架構與後續擴充順序
+- 第一版真正的交付驗收邊界仍以 `docs/implementation-spec.md` 為唯一準則
 
 ---
 

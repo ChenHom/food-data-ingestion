@@ -27,6 +27,7 @@
 - `cache_key`：唯一快取鍵
 - `provider`：google_places / google_maps / instagram / threads / blog ...
 - `resource_type`：place_detail / search_result / post / article ...
+- `request_fingerprint`：用來識別是否為同一個邏輯請求
 - `request_params`：查詢參數
 - `response_body` / `response_text`
 - `fetched_at`
@@ -40,16 +41,25 @@
 - cache 只做加速，不可作為唯一真相
 - 有效 cache 命中時更新 hit_count
 - 失敗快取 TTL 應短於成功快取
+- `request_fingerprint` 與 `content_hash` 需分開：前者識別請求等價，後者識別內容等價
 
 ## 2.2 source_targets
 
 用途：
 - 定義系統應該抓哪些目標
+- 以 `crawl_policy` 保存 target-level 的抓取策略覆寫
 
 例子：
 - platform=google_places, target_type=keyword, target_value=台北拉麵
 - platform=instagram, target_type=hashtag, target_value=台北咖啡廳
 - platform=blog, target_type=url, target_value=https://...
+
+`crawl_policy` 建議至少支援：
+- `ttl_seconds`
+- `refresh_after_seconds`
+- `cooldown_seconds`
+- `max_retries`
+- `rate_limit_bucket`
 
 ## 2.3 crawl_jobs
 
@@ -73,6 +83,7 @@
 - `source_url`
 - `canonical_url`
 - `external_id`
+- `parent_external_id`
 - `http_status`
 - `observed_at`
 - `fetched_at`
@@ -80,13 +91,17 @@
 - `raw_text`
 - `raw_json`
 - `parser_version`
+- `parsed_at`
 - `cache_entry_id`
 
 規則：
 - parser 壞掉時可從 raw 重跑
 - 不能只留 parse 後資料而丟 raw
+- `raw_documents` 至少必須保存 `raw_html`、`raw_text`、`raw_json` 其中一種內容
 - `parser_version` 第一版允許為 `NULL`，等 parser 真正上線後再填入固定版本值
+- `parsed_at` 用於追蹤該筆 raw 最後一次被 parser 消化的時間
 - `content_hash` 必須有統一算法，否則無法穩定 dedupe / retry / replay
+- `parent_external_id` 用於表達 reply / child item 與 parent entity 的關係，第一版 place detail 流程可不填
 
 ## 2.5 raw_assets
 
@@ -149,6 +164,7 @@
 規則：
 - 一律能回推 raw_document
 - 不直接在 contents 表綁單一 restaurant
+- 若 `external_content_id` 存在，第一版應以 `(platform, external_content_id)` 視為內容唯一識別，用來避免重複落地
 
 ## 2.10 content_restaurant_links
 

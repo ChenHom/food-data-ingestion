@@ -20,10 +20,12 @@
 - source target 與 crawl job 管理
 - raw documents / raw assets 落地
 - restaurants 主檔
-- contents 結構化內容
-- content 與 restaurant linking
-- tags / aspects 基礎欄位
+- contents / linking / tags / aspects 的 schema 預留
 - ingestion logs
+
+補充說明：
+- 第一版**實際首波交付邊界**以 `docs/implementation-spec.md` 的 Phase 1–5 為準
+- 本節列出的 `contents / linking / tags / aspects` 代表第一版 schema 設計目標與後續 phase 會接上的層，不代表首波實作已全部完成
 
 ## 不在第一版範圍
 
