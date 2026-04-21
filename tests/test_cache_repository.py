@@ -97,6 +97,67 @@ def test_mark_hit_updates_last_accessed_at_and_increments_counter():
     assert params == (now, "google_places:v1:place_detail:abc")
 
 
+def test_upsert_resets_hit_count_on_conflict():
+    now = datetime(2026, 4, 20, 12, 0, tzinfo=timezone.utc)
+    entry = ApiRequestCacheEntry(
+        cache_key="google_places:v1:place_detail:abc",
+        provider="google_places",
+        resource_type="place_detail",
+        cache_version="v1",
+        request_params={},
+        status_code=200,
+        response_body={"name": "店家"},
+        response_text=None,
+        content_hash="hash-1",
+        fetched_at=now,
+        refresh_after=now + timedelta(minutes=30),
+        expires_at=now + timedelta(hours=6),
+        last_accessed_at=now,
+        hit_count=0,
+        is_error=False,
+        error_message=None,
+        source_meta={},
+    )
+    session = FakeSession()
+    repo = ApiRequestCacheRepository(session)
+
+    repo.upsert(entry)
+
+    query, _ = session.execute_calls[0]
+    assert "hit_count = EXCLUDED.hit_count" in query
+
+
+def test_from_row_ignores_extra_db_columns():
+    now = datetime(2026, 4, 20, 12, 0, tzinfo=timezone.utc)
+    row = {
+        "cache_key": "google_places:v1:place_detail:abc",
+        "provider": "google_places",
+        "resource_type": "place_detail",
+        "cache_version": "v1",
+        "request_params": {},
+        "status_code": 200,
+        "response_body": {"name": "店家"},
+        "response_text": None,
+        "content_hash": "hash-1",
+        "fetched_at": now - timedelta(minutes=30),
+        "refresh_after": now + timedelta(minutes=10),
+        "expires_at": now + timedelta(minutes=30),
+        "last_accessed_at": now - timedelta(minutes=5),
+        "hit_count": 3,
+        "is_error": False,
+        "error_message": None,
+        "source_meta": {},
+        # extra columns returned by DB that are not in the model
+        "created_at": now - timedelta(hours=1),
+        "updated_at": now - timedelta(minutes=10),
+    }
+
+    entry = ApiRequestCacheEntry.from_row(row)
+
+    assert isinstance(entry, ApiRequestCacheEntry)
+    assert entry.cache_key == "google_places:v1:place_detail:abc"
+
+
 def test_upsert_writes_insert_on_conflict_statement():
     now = datetime(2026, 4, 20, 12, 0, tzinfo=timezone.utc)
     entry = ApiRequestCacheEntry(
