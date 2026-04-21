@@ -1,0 +1,225 @@
+# 資料模型與結構化存放規則
+
+本文件說明第一版 DDL 的分層、每張表的責任，與資料應如何從 raw 流到 structured。
+
+---
+
+## 一、分層概念
+
+整體資料模型分成 4 層：
+
+1. 調度層：`source_targets`, `crawl_jobs`
+2. 快取與 raw 層：`api_request_cache`, `raw_documents`, `raw_assets`
+3. 結構化實體層：`restaurants`, `contents`, `content_restaurant_links`
+4. 標註與觀測層：`review_aspects`, `tags`, `restaurant_tags`, `content_tags`, `ingestion_logs`
+
+---
+
+## 二、核心表說明
+
+## 2.1 api_request_cache
+
+用途：
+- 第一層 request cache
+- 降低直接打真實 API / 頁面的次數
+
+關鍵欄位：
+- `cache_key`：唯一快取鍵
+- `provider`：google_places / google_maps / instagram / threads / blog ...
+- `resource_type`：place_detail / search_result / post / article ...
+- `request_params`：查詢參數
+- `response_body` / `response_text`
+- `fetched_at`
+- `refresh_after`
+- `expires_at`
+- `last_accessed_at`
+- `hit_count`
+- `is_error`
+
+規則：
+- cache 只做加速，不可作為唯一真相
+- 有效 cache 命中時更新 hit_count
+- 失敗快取 TTL 應短於成功快取
+
+## 2.2 source_targets
+
+用途：
+- 定義系統應該抓哪些目標
+
+例子：
+- platform=google_places, target_type=keyword, target_value=台北拉麵
+- platform=instagram, target_type=hashtag, target_value=台北咖啡廳
+- platform=blog, target_type=url, target_value=https://...
+
+## 2.3 crawl_jobs
+
+用途：
+- 記錄每次抓取任務
+- 追蹤成功、失敗、重試、統計資訊
+
+規則：
+- job 不直接承載原始內容
+- job 只記錄執行上下文與狀態
+
+## 2.4 raw_documents
+
+用途：
+- 原始資料落地表
+- 所有外部抓回來的 JSON / HTML / text 都先落這裡
+
+關鍵欄位：
+- `platform`
+- `document_type`
+- `source_url`
+- `canonical_url`
+- `external_id`
+- `http_status`
+- `observed_at`
+- `fetched_at`
+- `raw_html`
+- `raw_text`
+- `raw_json`
+- `cache_entry_id`
+
+規則：
+- parser 壞掉時可從 raw 重跑
+- 不能只留 parse 後資料而丟 raw
+
+## 2.5 raw_assets
+
+用途：
+- 存 raw document 關聯的圖片 / 影片 / 縮圖資訊
+
+第一版可只存 URL 與 metadata，真正下載可延後。
+
+## 2.6 restaurants
+
+用途：
+- 店家主檔
+- 所有結構化內容最後都盡量對齊到 restaurant
+
+關鍵欄位：
+- `canonical_name`
+- `normalized_name`
+- `address`
+- `latitude`, `longitude`
+- `average_rating`
+- `rating_count`
+- `business_hours`
+
+## 2.7 restaurant_external_refs
+
+用途：
+- 對映同一家店在不同平台的 external id
+
+例子：
+- Google Places place_id
+- Google Maps 頁面 id
+- IG profile / location ref
+
+規則：
+- `UNIQUE(platform, external_id)`
+- restaurant master 與外部平台應分離，不要寫死在 restaurants 主表
+
+## 2.8 restaurant_aliases
+
+用途：
+- 處理店名變體、支店名稱、俗稱、縮寫
+
+## 2.9 contents
+
+用途：
+- 將 review / social post / article 抽成統一內容表
+
+關鍵欄位：
+- `content_type`
+- `external_content_id`
+- `author_name`
+- `published_at`
+- `title`
+- `text_content`
+- `rating_value`
+- `like_count`, `comment_count`, `share_count`
+- `source_url`
+- `raw_document_id`
+
+規則：
+- 一律能回推 raw_document
+- 不直接在 contents 表綁單一 restaurant
+
+## 2.10 content_restaurant_links
+
+用途：
+- 內容與店家的 linking 表
+- 一篇文可提到多家店
+
+關鍵欄位：
+- `match_method`
+- `confidence_score`
+- `mention_text`
+- `is_primary`
+
+規則：
+- linking 是獨立責任，不應硬塞在 contents
+- 若之後改用更好的 matcher，可重算這張表
+
+## 2.11 review_aspects
+
+用途：
+- 將內容拆成口味、服務、環境、價格等面向
+
+## 2.12 tags / restaurant_tags / content_tags
+
+用途：
+- 建立 cuisine / scenario / vibe / feature 等標籤系統
+
+例子：
+- 拉麵
+- 咖啡廳
+- 深夜食堂
+- 寵物友善
+- 高 CP
+- 約會
+
+## 2.13 ingestion_logs
+
+用途：
+- 追蹤抓取、解析、linking、分類過程中的 debug / warn / error
+
+---
+
+## 三、標準資料流
+
+### 3.1 從來源到 raw
+
+來源請求
+→ api_request_cache 檢查
+→ 真實請求（若需要）
+→ raw_documents / raw_assets
+
+### 3.2 從 raw 到 structured
+
+raw_documents
+→ parser
+→ contents / restaurants / restaurant_external_refs
+→ content_restaurant_links
+→ tags / review_aspects
+
+---
+
+## 四、第一版實際存放原則
+
+1. 真相在 PostgreSQL
+2. cache 是加速層
+3. raw 與 structured 分開
+4. linking 與 tagging 分開
+5. 外部平台 id 與 restaurant master 分開
+
+---
+
+## 五、第二版可擴充方向
+
+- 增加 snapshots / history tables，保留 rating 與評論數歷史變化
+- 增加 embeddings / pgvector
+- 增加 queue / worker tables 或直接接 Redis
+- 增加 parser_version / classifier_version 欄位
