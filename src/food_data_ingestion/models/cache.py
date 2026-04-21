@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -30,7 +31,8 @@ class ApiRequestCacheEntry:
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> "ApiRequestCacheEntry":
-        return cls(**row)
+        known_fields = {f.name for f in dataclasses.fields(cls)}
+        return cls(**{k: v for k, v in row.items() if k in known_fields})
 
     def is_fresh(self, *, as_of: datetime) -> bool:
         return self.expires_at is not None and self.expires_at > as_of

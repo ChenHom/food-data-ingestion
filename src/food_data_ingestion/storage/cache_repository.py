@@ -128,6 +128,7 @@ class ApiRequestCacheRepository:
                 refresh_after = EXCLUDED.refresh_after,
                 expires_at = EXCLUDED.expires_at,
                 last_accessed_at = EXCLUDED.last_accessed_at,
+                hit_count = EXCLUDED.hit_count,
                 is_error = EXCLUDED.is_error,
                 error_message = EXCLUDED.error_message,
                 source_meta = EXCLUDED.source_meta,
