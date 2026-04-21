@@ -203,6 +203,7 @@ class RawDocumentRepository:
 - 每次真實外部請求成功或失敗，只要有 response body / text / headers，就應盡量留下 raw
 - `cache_entry_id`、`crawl_job_id`、`source_target_id` 有就帶
 - `content_hash` 必須可重算
+- `parser_version` 第一版允許為 `NULL`，等 parser 真正上線後開始填固定版本值
 
 ### 4.6 `storage/restaurant_repository.py`
 
@@ -374,7 +375,22 @@ python -m food_data_ingestion.jobs.run_google_places_sync --place-id <PLACE_ID>
 - `raw_json` 或 `raw_text` 或 `raw_html`
 - `response_headers`
 - `content_hash`
+- `parser_version`
 - `cache_entry_id`（如果由 connector 流程產生）
+
+### 5.2.1 `content_hash` 定義
+
+第一版統一定義如下：
+
+- algorithm：`SHA-256`
+- 若有 `response_body`：先做 JSON canonical serialization 再 hash
+- 若沒有 `response_body`、但有 `response_text` / `raw_html`：對 normalized text 做 hash
+- 需排除明顯不穩定且不影響內容語意的欄位，例如 `timestamp`、`request_id`、`trace_id`
+
+規格要求：
+- `content_hash` helper 必須集中實作，不可散落在各 connector 各寫一套
+- canonical serialization 必須保證 key order 穩定
+- 相同語意內容在重跑時應得到相同 hash
 
 ## 5.3 Parsed restaurant 契約
 
@@ -458,9 +474,61 @@ upsert restaurant_external_refs
 - 就算最終失敗，只要曾拿到 response，仍要盡量保留 raw
 - parser 錯誤與 request 錯誤要分開記錄
 
+## 6.3 Transaction boundary
+
+第一版先明確切成三段，而不是把整條 ingestion 鏈打成單一大 transaction：
+
+### Transaction A：request / cache / raw
+
+包含：
+- 建立或更新 `crawl_jobs` 為 `running`
+- `api_request_cache` upsert
+- `raw_documents` create
+
+目的：
+- 只要外部 request 已發生且拿到 response，就把 cache 與 raw 先安全落地
+
+### Transaction B：structured persistence
+
+包含：
+- parser 輸出後的 `restaurants` upsert
+- `restaurant_external_refs` upsert
+- 後續若有 aliases，再與 restaurant persistence 同組處理
+
+目的：
+- 將 structured 寫入視為第二段獨立可重試步驟
+
+### Transaction C：job closeout
+
+包含：
+- 更新 `crawl_jobs` 最終狀態為 `success` / `failed` / `partial`
+- 寫入 `stats` / `error_message`
+
+規格要求：
+- 不要把外部 HTTP request 生命週期包在長交易內
+- Transaction A 成功、Transaction B 失敗時，job 應標記為 `failed` 或 `partial`，且 raw 仍保留
+- job closeout 必須永遠嘗試執行，即使 structured persistence 失敗
+
+## 6.4 Crawl lock 策略
+
+第一版尚未接 Redis，因此 crawl lock 明確採用 PostgreSQL advisory lock：
+
+- lock key 輸入：`platform + resource_type + identifier`
+- 以 stable hash 轉成 advisory lock 所需整數 key
+- 進入真實 request 前先執行 `pg_try_advisory_lock(...)`
+- 取得失敗代表已有相同 target 正在抓取，本次 job 應標記為 `skipped` 或等價狀態並留下原因
+- request 流程結束後必須釋放 lock
+
+規格要求：
+- 第一版不得額外在 schema 自造 `locked_at` / `lock_owner` 機制
+- advisory lock 的 key 算法必須集中實作，避免不同 connector 算出不同 key
+- crawl lock 是為了避免同 target 併發抓取，不是拿來取代 queue / scheduler
+
 ---
 
 ## 7. TTL 與快取政策規格
+
+本節是第一版 TTL 的**唯一真相來源**。其他文件若提到 TTL，只能引用本節，不應再各自定義另一套固定數字。
 
 第一版先固定以下規則：
 

@@ -79,11 +79,14 @@
 - `raw_html`
 - `raw_text`
 - `raw_json`
+- `parser_version`
 - `cache_entry_id`
 
 規則：
 - parser 壞掉時可從 raw 重跑
 - 不能只留 parse 後資料而丟 raw
+- `parser_version` 第一版允許為 `NULL`，等 parser 真正上線後再填入固定版本值
+- `content_hash` 必須有統一算法，否則無法穩定 dedupe / retry / replay
 
 ## 2.5 raw_assets
 
@@ -217,9 +220,15 @@ raw_documents
 
 ---
 
-## 五、第二版可擴充方向
+## 五、第一版預留欄位與第二版可擴充方向
+
+### 第一版先預留
+
+- `raw_documents.parser_version`：第一版 schema 先允許 `NULL`，之後 parser 上線後填固定版本字串，用於重跑與追蹤
+
+### 第二版可擴充方向
 
 - 增加 snapshots / history tables，保留 rating 與評論數歷史變化
 - 增加 embeddings / pgvector
 - 增加 queue / worker tables 或直接接 Redis
-- 增加 parser_version / classifier_version 欄位
+- 增加 classifier_version 欄位

@@ -17,6 +17,7 @@
 
 migration 檔案：
 - database/migrations/001_initial_ingestion_schema.sql
+- database/migrations/002_add_raw_document_parser_version.sql
 
 ## 專案文件
 

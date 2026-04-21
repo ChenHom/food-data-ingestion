@@ -73,29 +73,31 @@
 
 ## 2.3 cache 規則
 
+本節只描述 cache 策略原則；**固定 TTL 數值以 `docs/implementation-spec.md` 第 7 節為唯一真相來源**。
+
 ### 店家基本資料 API
 例如 Google Places detail
-- TTL：6 小時到 24 小時
-- refresh_after：可短於 expires_at
+- TTL：依 implementation-spec 固定值執行
+- refresh_after：依 implementation-spec 固定值執行，且需小於 `expires_at`
 - 用途：減少重複查同一家店
 
 ### 搜尋結果頁
 例如某地區餐廳搜尋
-- TTL：1 到 6 小時
+- TTL：依 implementation-spec 固定值執行
 - 用途：減少短時間重複搜尋
 
 ### 文章 / 貼文 detail
-- TTL：2 到 12 小時
+- TTL：依 implementation-spec 固定值執行
 - 用途：內容通常穩定，可短期重用
 
 ### 評論列表頁 / 動態頁
-- TTL：15 分鐘到 2 小時
+- TTL：由 connector policy helper 決定，但不得與 implementation-spec 衝突
 - 用途：變動較快，避免快取太久
 
 ### 失敗結果
-- timeout / 5xx：30 秒到 3 分鐘
-- 429：5 到 30 分鐘
-- 403 / suspicious / captcha：30 分鐘到 12 小時
+- timeout / 5xx：依 implementation-spec 固定值執行
+- 429：依 implementation-spec 固定值執行
+- 403 / suspicious / captcha：依 implementation-spec 固定值執行
 
 ---
 
@@ -108,6 +110,14 @@
 - 每個 target 要有 crawl lock
 - 429 / 403 要有 cooldown 機制
 - 相同 external_id / content_hash 要去重
+
+第一版補充規則：
+- crawl lock 明確採 PostgreSQL `pg_try_advisory_lock(...)`
+- lock key 由 `platform + resource_type + identifier` 穩定映射而成
+- 若 advisory lock 取得失敗，該次 job 應記錄為 `skipped` 或等價狀態，不應繼續打真實來源
+- `content_hash` 一律採 `SHA-256`
+- 若來源為 JSON，必須先做 canonical serialization 再 hash
+- 若來源為文字 / HTML，必須先做 normalized text hash
 
 ## 3.2 Google Places API
 
