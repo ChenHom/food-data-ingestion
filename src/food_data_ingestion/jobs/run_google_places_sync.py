@@ -5,6 +5,7 @@ import json
 
 from food_data_ingestion.config import Settings
 from food_data_ingestion.connectors.google_places import GooglePlacesConnector
+from food_data_ingestion.db.advisory_lock import PostgresAdvisoryLockManager
 from food_data_ingestion.db.connection import create_connection
 from food_data_ingestion.db.psycopg_session import PsycopgSession
 from food_data_ingestion.parsers.google_places import parse_place_detail
@@ -13,6 +14,7 @@ from food_data_ingestion.storage.cache_repository import ApiRequestCacheReposito
 from food_data_ingestion.storage.crawl_job_repository import CrawlJobRepository
 from food_data_ingestion.storage.raw_repository import RawDocumentRepository
 from food_data_ingestion.storage.restaurant_repository import RestaurantRepository
+from food_data_ingestion.storage.source_target_repository import SourceTargetRepository
 
 
 def build_default_service() -> IngestionService:
@@ -27,16 +29,19 @@ def build_default_service() -> IngestionService:
         restaurant_repository=RestaurantRepository(session),
         parser=parse_place_detail,
         transaction_manager=session,
+        source_target_repository=SourceTargetRepository(session),
+        advisory_lock_manager=PostgresAdvisoryLockManager(session),
     )
 
 
 def main(argv: list[str] | None = None, *, service: IngestionService | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--place-id", required=True)
+    parser.add_argument("--source-target-id", type=int)
     args = parser.parse_args(argv)
 
     service = service or build_default_service()
-    result = service.ingest_google_place_detail(args.place_id)
+    result = service.ingest_google_place_detail(args.place_id, source_target_id=args.source_target_id)
     print(
         json.dumps(
             {

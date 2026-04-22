@@ -106,3 +106,24 @@ class CrawlJobRepository:
             """,
             (finished_at, as_jsonb(stats or {}), error_message, job_id),
         )
+
+    def mark_skipped(
+        self,
+        job_id: int,
+        *,
+        finished_at: datetime,
+        error_message: str,
+        stats: dict[str, Any] | None = None,
+    ) -> None:
+        self.session.execute(
+            """
+            UPDATE ingestion.crawl_jobs
+            SET status = 'skipped',
+                finished_at = %s,
+                stats = %s,
+                error_message = %s,
+                updated_at = NOW()
+            WHERE id = %s
+            """,
+            (finished_at, as_jsonb(stats or {}), error_message, job_id),
+        )

@@ -52,6 +52,7 @@ migration 檔案：
 - Google Places connector + TTL policy helper
 - Google Places parser + restaurant persistence
 - `IngestionService` 與 `run_google_places_sync` CLI
+- advisory lock + `source_targets.crawl_policy` 已接上 service / connector / CLI
 - Phase 1–5 單元測試已接上
 
 ## 目前可執行的入口
@@ -59,8 +60,12 @@ migration 檔案：
 ### CLI
 
 ```bash
-python -m food_data_ingestion.jobs.run_google_places_sync --place-id <PLACE_ID>
+python -m food_data_ingestion.jobs.run_google_places_sync --place-id <PLACE_ID> [--source-target-id <ID>]
 ```
+
+補充：
+- 若有傳 `--source-target-id`，service 會讀取 `ingestion.source_targets.crawl_policy` 作為 target-level override
+- 在進入真實 request 前，會先對 `platform + resource_type + identifier` 取得 PostgreSQL advisory lock，避免同 target 併發抓取
 
 輸出欄位：
 - `cache_hit`
@@ -109,6 +114,6 @@ RUN_FOOD_DB_SMOKE=1 python -m pytest tests/test_google_places_db_smoke.py -q
 
 ## 下一步建議
 
-1. 接 advisory lock 與 target-level `crawl_policy`
-2. 補真實 Google Places API 路徑驗證（在有 API key 的環境）
+1. 補真實 Google Places API 路徑驗證（在有 API key 的環境）
+2. 擴 `source_targets` 調度入口，讓 job 不只靠手動 place id / source target id 觸發
 3. 再擴到 article scraper / IG / Threads PoC

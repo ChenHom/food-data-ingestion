@@ -11,14 +11,14 @@ from food_data_ingestion.services.ingestion_service import IngestionResult, Inge
 @dataclass
 class FakeConnector:
     result: dict
-    calls: list[tuple[str, tuple[str, ...], str]] | None = None
+    calls: list[tuple[str, tuple[str, ...], str, dict | None]] | None = None
 
     def __post_init__(self):
         if self.calls is None:
             self.calls = []
 
     def fetch_place_detail(self, place_id: str, *, fields=None, language="zh-TW", crawl_policy=None):
-        self.calls.append((place_id, tuple(fields or ()), language))
+        self.calls.append((place_id, tuple(fields or ()), language, crawl_policy))
         return self.result
 
 
@@ -28,6 +28,7 @@ class FakeCrawlJobRepository:
         self.running = []
         self.success = []
         self.failed = []
+        self.skipped = []
         self.next_id = 1
 
     def create(self, payload):
@@ -44,6 +45,9 @@ class FakeCrawlJobRepository:
 
     def mark_failed(self, job_id, *, finished_at, error_message, stats=None):
         self.failed.append((job_id, finished_at, error_message, stats))
+
+    def mark_skipped(self, job_id, *, finished_at, error_message, stats=None):
+        self.skipped.append((job_id, finished_at, error_message, stats))
 
 
 class FakeCacheRepository:
@@ -80,6 +84,30 @@ class FakeRestaurantRepository:
         restaurant_id = self.next_id
         self.next_id += 1
         return restaurant_id
+
+
+class FakeSourceTargetRepository:
+    def __init__(self, policy=None):
+        self.policy = policy or {}
+        self.calls = []
+
+    def get_crawl_policy(self, source_target_id: int):
+        self.calls.append(source_target_id)
+        return self.policy
+
+
+class FakeAdvisoryLockManager:
+    def __init__(self, acquire_result=True):
+        self.acquire_result = acquire_result
+        self.try_calls = []
+        self.release_calls = []
+
+    def try_acquire(self, *, platform: str, resource_type: str, identifier: str):
+        self.try_calls.append((platform, resource_type, identifier))
+        return self.acquire_result
+
+    def release(self, *, platform: str, resource_type: str, identifier: str):
+        self.release_calls.append((platform, resource_type, identifier))
 
 
 def fake_parser(raw_document):
@@ -140,6 +168,7 @@ def test_ingest_google_place_detail_cache_miss_writes_cache_raw_and_restaurant()
     }
 
 
+
 def test_ingest_google_place_detail_cache_hit_marks_hit_and_skips_raw_write():
     now = datetime(2026, 4, 22, 12, 0, tzinfo=timezone.utc)
     connector = FakeConnector(
@@ -183,6 +212,7 @@ def test_ingest_google_place_detail_cache_hit_marks_hit_and_skips_raw_write():
     assert cache_repository.mark_hits == [("google_places:v1:place_detail:abc", now)]
     assert raw_repository.created == []
     assert len(restaurant_repository.calls) == 1
+
 
 
 def test_ingest_google_place_detail_marks_job_failed_when_parser_raises():
@@ -231,3 +261,89 @@ def test_ingest_google_place_detail_marks_job_failed_when_parser_raises():
     assert len(raw_repository.created) == 1
     assert restaurant_repository.calls == []
     assert crawl_jobs.failed[0][2] == "parser_error: broken parser"
+
+
+
+def test_ingest_google_place_detail_reads_source_target_crawl_policy_and_passes_to_connector():
+    now = datetime(2026, 4, 22, 12, 0, tzinfo=timezone.utc)
+    connector = FakeConnector(
+        {
+            "provider": "google_places",
+            "resource_type": "place_detail",
+            "cache_key": "google_places:v1:place_detail:abc",
+            "normalized_url": "https://maps.googleapis.com/place/details/json?place_id=abc",
+            "request_params": {"place_id": "abc", "fields": ["name"], "language": "zh-TW"},
+            "status_code": 200,
+            "response_headers": {"etag": "v1"},
+            "response_body": {"result": {"place_id": "abc", "name": "店家"}},
+            "response_text": '{"result":{"place_id":"abc","name":"店家"}}',
+            "fetched_at": now,
+            "expires_at": now,
+            "refresh_after": None,
+            "is_error": False,
+            "error_message": None,
+            "source_meta": {"cache_hit": False, "request_fingerprint": "f" * 64},
+        }
+    )
+    crawl_jobs = FakeCrawlJobRepository()
+    source_targets = FakeSourceTargetRepository(
+        {"ttl_seconds": 1800, "refresh_after_seconds": 600, "cooldown_seconds": 120, "max_retries": 5}
+    )
+    service = IngestionService(
+        connector=connector,
+        crawl_job_repository=crawl_jobs,
+        cache_repository=FakeCacheRepository(),
+        raw_repository=FakeRawRepository(),
+        restaurant_repository=FakeRestaurantRepository(),
+        parser=fake_parser,
+        now_provider=lambda: now,
+        source_target_repository=source_targets,
+    )
+
+    service.ingest_google_place_detail("abc", source_target_id=42)
+
+    assert source_targets.calls == [42]
+    assert connector.calls == [
+        (
+            "abc",
+            tuple(),
+            "zh-TW",
+            {"ttl_seconds": 1800, "refresh_after_seconds": 600, "cooldown_seconds": 120, "max_retries": 5},
+        )
+    ]
+    assert crawl_jobs.created[0].source_target_id == 42
+
+
+
+def test_ingest_google_place_detail_marks_job_skipped_when_advisory_lock_not_acquired():
+    now = datetime(2026, 4, 22, 12, 0, tzinfo=timezone.utc)
+    connector = FakeConnector({"provider": "google_places"})
+    crawl_jobs = FakeCrawlJobRepository()
+    advisory_lock_manager = FakeAdvisoryLockManager(acquire_result=False)
+    service = IngestionService(
+        connector=connector,
+        crawl_job_repository=crawl_jobs,
+        cache_repository=FakeCacheRepository(),
+        raw_repository=FakeRawRepository(),
+        restaurant_repository=FakeRestaurantRepository(),
+        parser=fake_parser,
+        now_provider=lambda: now,
+        advisory_lock_manager=advisory_lock_manager,
+    )
+
+    with pytest.raises(RuntimeError, match="crawl_locked"):
+        service.ingest_google_place_detail("abc")
+
+    assert connector.calls == []
+    assert advisory_lock_manager.try_calls == [("google_places", "place_detail", "abc")]
+    assert advisory_lock_manager.release_calls == []
+    assert crawl_jobs.failed == []
+    assert crawl_jobs.success == []
+    assert crawl_jobs.skipped == [
+        (
+            1,
+            now,
+            "crawl_locked: google_places/place_detail/abc",
+            {"cache_hit": False, "content_count": 0, "lock_acquired": False},
+        )
+    ]

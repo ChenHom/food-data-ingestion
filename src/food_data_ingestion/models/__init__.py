@@ -2,6 +2,7 @@ from .cache import ApiRequestCacheEntry
 from .crawl_job import CRAWL_JOB_STATUSES, CrawlJobCreate, CrawlJobStatus
 from .raw_document import RAW_PARSE_STATUSES, RawDocumentCreate, build_content_hash
 from .restaurant import ParsedExternalRef, ParsedPlaceDetail, ParsedRestaurant
+from .source_target import SourceTarget
 
 __all__ = [
     "ApiRequestCacheEntry",
@@ -13,5 +14,6 @@ __all__ = [
     "ParsedRestaurant",
     "RAW_PARSE_STATUSES",
     "RawDocumentCreate",
+    "SourceTarget",
     "build_content_hash",
 ]

@@ -115,3 +115,23 @@ def test_mark_failed_sets_finished_at_error_and_stats():
     assert params[1].obj == {"cache_hit": False, "content_count": 0}
     assert params[2] == "rate limit"
     assert params[3] == 7
+
+
+def test_mark_skipped_sets_finished_at_error_and_stats():
+    finished_at = datetime(2026, 4, 22, 8, 9, tzinfo=timezone.utc)
+    session = FakeSession()
+    repository = CrawlJobRepository(session)
+
+    repository.mark_skipped(
+        7,
+        finished_at=finished_at,
+        error_message="crawl_locked: google_places/place_detail/abc",
+        stats={"cache_hit": False, "content_count": 0, "lock_acquired": False},
+    )
+
+    query, params = session.execute_calls[0]
+    assert "status = 'skipped'" in query
+    assert params[0] == finished_at
+    assert params[1].obj == {"cache_hit": False, "content_count": 0, "lock_acquired": False}
+    assert params[2] == "crawl_locked: google_places/place_detail/abc"
+    assert params[3] == 7

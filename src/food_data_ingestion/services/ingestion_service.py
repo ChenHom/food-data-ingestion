@@ -18,18 +18,45 @@ class IngestionResult:
 
 
 class ConnectorProtocol(Protocol):
-    def fetch_place_detail(self, place_id: str, *, fields: list[str] | None = None, language: str = "zh-TW", crawl_policy: dict[str, Any] | None = None) -> dict[str, Any]: ...
+    def fetch_place_detail(
+        self,
+        place_id: str,
+        *,
+        fields: list[str] | None = None,
+        language: str = "zh-TW",
+        crawl_policy: dict[str, Any] | None = None,
+    ) -> dict[str, Any]: ...
 
 
 class CrawlJobRepositoryProtocol(Protocol):
     def create(self, payload: CrawlJobCreate) -> int: ...
+
     def mark_running(self, job_id: int, *, started_at: datetime, worker_name: str | None = None) -> None: ...
+
     def mark_success(self, job_id: int, *, finished_at: datetime, stats: dict[str, Any] | None = None) -> None: ...
-    def mark_failed(self, job_id: int, *, finished_at: datetime, error_message: str, stats: dict[str, Any] | None = None) -> None: ...
+
+    def mark_failed(
+        self,
+        job_id: int,
+        *,
+        finished_at: datetime,
+        error_message: str,
+        stats: dict[str, Any] | None = None,
+    ) -> None: ...
+
+    def mark_skipped(
+        self,
+        job_id: int,
+        *,
+        finished_at: datetime,
+        error_message: str,
+        stats: dict[str, Any] | None = None,
+    ) -> None: ...
 
 
 class CacheRepositoryProtocol(Protocol):
     def upsert(self, entry: ApiRequestCacheEntry) -> None: ...
+
     def mark_hit(self, cache_key: str, *, accessed_at: datetime) -> None: ...
 
 
@@ -43,7 +70,18 @@ class RestaurantRepositoryProtocol(Protocol):
 
 class TransactionManagerProtocol(Protocol):
     def commit(self) -> None: ...
+
     def rollback(self) -> None: ...
+
+
+class SourceTargetRepositoryProtocol(Protocol):
+    def get_crawl_policy(self, source_target_id: int) -> dict[str, Any]: ...
+
+
+class AdvisoryLockManagerProtocol(Protocol):
+    def try_acquire(self, *, platform: str, resource_type: str, identifier: str) -> bool: ...
+
+    def release(self, *, platform: str, resource_type: str, identifier: str) -> bool: ...
 
 
 class IngestionService:
@@ -58,6 +96,8 @@ class IngestionService:
         parser: Callable[[RawDocumentCreate], Any],
         now_provider: Callable[[], datetime] | None = None,
         transaction_manager: TransactionManagerProtocol | None = None,
+        source_target_repository: SourceTargetRepositoryProtocol | None = None,
+        advisory_lock_manager: AdvisoryLockManagerProtocol | None = None,
     ) -> None:
         self.connector = connector
         self.crawl_job_repository = crawl_job_repository
@@ -67,23 +107,66 @@ class IngestionService:
         self.parser = parser
         self.now_provider = now_provider or (lambda: datetime.now(UTC))
         self.transaction_manager = transaction_manager
+        self.source_target_repository = source_target_repository
+        self.advisory_lock_manager = advisory_lock_manager
 
-    def ingest_google_place_detail(self, place_id: str) -> IngestionResult:
+    def ingest_google_place_detail(
+        self,
+        place_id: str,
+        *,
+        source_target_id: int | None = None,
+        crawl_policy: dict[str, Any] | None = None,
+    ) -> IngestionResult:
         now = self.now_provider()
+        effective_crawl_policy = self._resolve_crawl_policy(
+            source_target_id=source_target_id,
+            crawl_policy=crawl_policy,
+        )
         job_id = self.crawl_job_repository.create(
             CrawlJobCreate(
                 platform="google_places",
                 job_type="place_detail",
-                request_meta={"place_id": place_id},
+                source_target_id=source_target_id,
+                request_meta={
+                    "place_id": place_id,
+                    **({"source_target_id": source_target_id} if source_target_id is not None else {}),
+                },
             )
         )
         self.crawl_job_repository.mark_running(job_id, started_at=now)
+        if self.transaction_manager is not None:
+            self.transaction_manager.commit()
 
-        fetch_result = self.connector.fetch_place_detail(place_id)
-        cache_hit = bool(fetch_result.get("source_meta", {}).get("cache_hit"))
+        cache_hit = False
         raw_document_id: int | None = None
+        lock_acquired = False
+
+        if self.advisory_lock_manager is not None:
+            lock_acquired = self.advisory_lock_manager.try_acquire(
+                platform="google_places",
+                resource_type="place_detail",
+                identifier=place_id,
+            )
+            if not lock_acquired:
+                finished_at = self.now_provider()
+                self.crawl_job_repository.mark_skipped(
+                    job_id,
+                    finished_at=finished_at,
+                    error_message=f"crawl_locked: google_places/place_detail/{place_id}",
+                    stats={
+                        "cache_hit": False,
+                        "content_count": 0,
+                        "lock_acquired": False,
+                    },
+                )
+                if self.transaction_manager is not None:
+                    self.transaction_manager.commit()
+                raise RuntimeError(f"crawl_locked: google_places/place_detail/{place_id}")
 
         try:
+            fetch_result = self.connector.fetch_place_detail(place_id, crawl_policy=effective_crawl_policy)
+            cache_hit = bool(fetch_result.get("source_meta", {}).get("cache_hit"))
+
             if cache_hit:
                 self.cache_repository.mark_hit(fetch_result["cache_key"], accessed_at=now)
             else:
@@ -110,6 +193,7 @@ class IngestionService:
                 raw_document_id = self.raw_repository.create(
                     RawDocumentCreate(
                         crawl_job_id=job_id,
+                        source_target_id=source_target_id,
                         platform=fetch_result["provider"],
                         document_type=fetch_result["resource_type"],
                         source_url=fetch_result.get("normalized_url"),
@@ -127,6 +211,7 @@ class IngestionService:
 
             parser_input = RawDocumentCreate(
                 crawl_job_id=job_id,
+                source_target_id=source_target_id,
                 platform=fetch_result["provider"],
                 document_type=fetch_result["resource_type"],
                 source_url=fetch_result.get("normalized_url"),
@@ -151,6 +236,7 @@ class IngestionService:
                     "raw_document_id": raw_document_id,
                     "restaurant_id_count": 1,
                     "content_count": 0,
+                    **({"source_target_id": source_target_id} if source_target_id is not None else {}),
                 },
             )
             if self.transaction_manager is not None:
@@ -173,8 +259,29 @@ class IngestionService:
                     "cache_hit": cache_hit,
                     "raw_document_id": raw_document_id,
                     "content_count": 0,
+                    **({"source_target_id": source_target_id} if source_target_id is not None else {}),
                 },
             )
             if self.transaction_manager is not None:
                 self.transaction_manager.commit()
             raise
+        finally:
+            if lock_acquired and self.advisory_lock_manager is not None:
+                self.advisory_lock_manager.release(
+                    platform="google_places",
+                    resource_type="place_detail",
+                    identifier=place_id,
+                )
+
+    def _resolve_crawl_policy(
+        self,
+        *,
+        source_target_id: int | None,
+        crawl_policy: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        resolved: dict[str, Any] = {}
+        if source_target_id is not None and self.source_target_repository is not None:
+            resolved.update(self.source_target_repository.get_crawl_policy(source_target_id))
+        if crawl_policy:
+            resolved.update(crawl_policy)
+        return resolved or None
