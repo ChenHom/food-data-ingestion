@@ -84,9 +84,31 @@ python -m food_data_ingestion.jobs.run_google_places_sync --place-id <PLACE_ID>
 
 補充：目前本機環境未配置 `GOOGLE_PLACES_API_KEY`，因此 smoke check 採用 fake client 餵固定 Places detail payload，但 repository / parser / service / DB 寫入都是真實接線驗證。
 
+## 可重複執行的 smoke / integration 驗證
+
+### 1. 直接跑 smoke script
+
+```bash
+python -m food_data_ingestion.smoke.google_places --place-id smoke_place_001
+```
+
+這個 smoke script 會：
+- 先清掉同一個 `place_id` 既有的 smoke 資料，確保可重跑
+- 用 fake Google Places client 餵固定 payload
+- 真實寫入 PostgreSQL
+- 連跑兩次 ingestion，驗證第一次 miss、第二次 hit
+- 輸出 JSON summary（包含 `connector_call_count` 與各資料表筆數）
+
+### 2. 跑 integration test
+
+```bash
+RUN_FOOD_DB_SMOKE=1 python -m pytest tests/test_google_places_db_smoke.py -q
+```
+
+這個測試會真的打到本機 PostgreSQL，預設情況下會 skip；只有在你明確設 `RUN_FOOD_DB_SMOKE=1` 時才執行。
+
 ## 下一步建議
 
-1. 補一個可重複執行的 smoke script / integration test
-2. 接 advisory lock 與 target-level `crawl_policy`
-3. 補真實 Google Places API 路徑驗證（在有 API key 的環境）
-4. 再擴到 article scraper / IG / Threads PoC
+1. 接 advisory lock 與 target-level `crawl_policy`
+2. 補真實 Google Places API 路徑驗證（在有 API key 的環境）
+3. 再擴到 article scraper / IG / Threads PoC
