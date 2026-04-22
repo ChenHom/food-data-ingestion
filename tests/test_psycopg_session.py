@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
+from psycopg.rows import dict_row
 
 from food_data_ingestion.config import Settings
 from food_data_ingestion.db.connection import build_dsn, create_connection
@@ -35,6 +36,15 @@ def test_build_dsn_does_not_omit_password():
     settings = Settings(db_password="s3cr3t")
     dsn = build_dsn(settings)
     assert "s3cr3t" in dsn
+
+
+def test_build_dsn_handles_special_chars_in_password():
+    import psycopg.conninfo as _conninfo
+
+    settings = Settings(db_password="pass with space")
+    dsn = build_dsn(settings)
+    parsed = _conninfo.conninfo_to_dict(dsn)
+    assert parsed["password"] == "pass with space"
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +132,7 @@ def test_fetchone_returns_dict_row():
 
     result = session.fetchone("SELECT * FROM restaurants WHERE id = %s", (1,))
 
+    conn.cursor.assert_called_once_with(row_factory=dict_row)
     cursor.execute.assert_called_once_with("SELECT * FROM restaurants WHERE id = %s", (1,))
     assert result == expected
 
@@ -147,6 +158,7 @@ def test_fetchall_returns_list_of_dicts():
 
     result = session.fetchall("SELECT * FROM restaurants", ())
 
+    conn.cursor.assert_called_once_with(row_factory=dict_row)
     cursor.execute.assert_called_once()
     assert result == rows
 
@@ -199,6 +211,7 @@ def test_execute_returning_returns_dict_row():
         "INSERT INTO restaurants (name) VALUES (%s) RETURNING id, name", ("壽司店",)
     )
 
+    conn.cursor.assert_called_once_with(row_factory=dict_row)
     cursor.execute.assert_called_once()
     assert result == expected
 
@@ -221,12 +234,16 @@ def test_execute_returning_returns_none_when_no_row():
 
 def test_psycopg_session_is_compatible_with_session_protocol():
     """PsycopgSession must satisfy the SessionProtocol used by repositories."""
+    import inspect
     from food_data_ingestion.storage.cache_repository import SessionProtocol
-    from typing import runtime_checkable, Protocol
 
-    # Verify structural compatibility by checking the required methods exist
     session = PsycopgSession(MagicMock())
-    assert hasattr(session, "fetchone")
-    assert hasattr(session, "execute")
-    assert callable(session.fetchone)
-    assert callable(session.execute)
+
+    # Verify required methods exist and have compatible signatures
+    for method_name in ("fetchone", "execute"):
+        assert hasattr(session, method_name), f"missing method: {method_name}"
+        assert callable(getattr(session, method_name))
+        sig = inspect.signature(getattr(session, method_name))
+        params = list(sig.parameters)
+        assert "query" in params
+        assert "params" in params

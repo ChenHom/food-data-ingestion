@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import psycopg
+import psycopg.conninfo
 
 from food_data_ingestion.config import Settings
 
 
 def build_dsn(settings: Settings) -> str:
-    return (
-        f"host={settings.db_host} "
-        f"port={settings.db_port} "
-        f"dbname={settings.db_name} "
-        f"user={settings.db_user} "
-        f"password={settings.db_password}"
+    return psycopg.conninfo.make_conninfo(
+        host=settings.db_host,
+        port=settings.db_port,
+        dbname=settings.db_name,
+        user=settings.db_user,
+        password=settings.db_password,
     )
 
 
