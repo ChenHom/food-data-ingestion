@@ -93,8 +93,8 @@ def test_create_inserts_raw_document_and_returns_id():
     assert params[13] == "pending"
     assert params[14] is None
     assert params[15] is None
-    assert params[16] == {"name": "店家", "request_id": "ignored"}
-    assert params[17] == {"etag": "v1"}
-    assert params[18] == {"lang": "zh-TW"}
+    assert params[16].obj == {"name": "店家", "request_id": "ignored"}
+    assert params[17].obj == {"etag": "v1"}
+    assert params[18].obj == {"lang": "zh-TW"}
     assert params[19] == "google_places_v1"
     assert params[20] == parsed_at

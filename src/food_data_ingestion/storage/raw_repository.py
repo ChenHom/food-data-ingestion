@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
+from food_data_ingestion.db.json import as_jsonb
 from food_data_ingestion.models.raw_document import RawDocumentCreate
 
 
@@ -64,9 +65,9 @@ class RawDocumentRepository:
                 payload.parse_status,
                 payload.raw_html,
                 payload.raw_text,
-                payload.raw_json,
-                payload.response_headers,
-                payload.source_meta,
+                as_jsonb(payload.raw_json) if payload.raw_json is not None else None,
+                as_jsonb(payload.response_headers) if payload.response_headers is not None else None,
+                as_jsonb(payload.source_meta),
                 payload.parser_version,
                 payload.parsed_at,
             ),

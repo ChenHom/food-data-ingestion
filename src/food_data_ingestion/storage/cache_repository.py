@@ -5,6 +5,7 @@ from datetime import datetime
 import re
 from typing import Any, Protocol
 
+from food_data_ingestion.db.json import as_jsonb
 from food_data_ingestion.models.cache import ApiRequestCacheEntry
 
 
@@ -140,11 +141,11 @@ class ApiRequestCacheRepository:
                 entry.resource_type,
                 entry.cache_version,
                 entry.request_fingerprint,
-                entry.request_params,
+                as_jsonb(entry.request_params),
                 entry.normalized_url,
                 entry.status_code,
-                entry.response_headers,
-                entry.response_body,
+                as_jsonb(entry.response_headers) if entry.response_headers is not None else None,
+                as_jsonb(entry.response_body) if entry.response_body is not None else None,
                 entry.content_hash,
                 entry.response_text,
                 entry.fetched_at,
@@ -154,6 +155,6 @@ class ApiRequestCacheRepository:
                 entry.hit_count,
                 entry.is_error,
                 entry.error_message,
-                entry.source_meta,
+                as_jsonb(entry.source_meta),
             ),
         )

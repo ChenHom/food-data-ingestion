@@ -12,7 +12,7 @@ class PsycopgSession:
     Responsibilities:
     - Translate SQL results to ``dict[str, Any]``
     - Expose ``fetchone``, ``fetchall``, ``execute``, and ``execute_returning``
-    - Transaction scope is managed by the caller (service / command layer)
+    - Expose ``commit`` / ``rollback`` so service / command layer can define transaction boundaries
     """
 
     def __init__(self, connection: psycopg.Connection) -> None:
@@ -36,3 +36,9 @@ class PsycopgSession:
         with self._conn.cursor(row_factory=dict_row) as cur:
             cur.execute(query, params)
             return cur.fetchone()
+
+    def commit(self) -> None:
+        self._conn.commit()
+
+    def rollback(self) -> None:
+        self._conn.rollback()

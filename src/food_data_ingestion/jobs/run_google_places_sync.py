@@ -26,6 +26,7 @@ def build_default_service() -> IngestionService:
         raw_repository=RawDocumentRepository(session),
         restaurant_repository=RestaurantRepository(session),
         parser=parse_place_detail,
+        transaction_manager=session,
     )
 
 

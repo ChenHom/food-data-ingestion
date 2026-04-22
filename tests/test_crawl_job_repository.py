@@ -48,7 +48,7 @@ def test_create_inserts_crawl_job_and_returns_id():
     query, params = session.execute_returning_calls[0]
     assert "INSERT INTO ingestion.crawl_jobs" in query
     assert "RETURNING id" in query
-    assert params == (
+    assert params[:9] == (
         11,
         "google_places",
         "place_detail",
@@ -58,10 +58,10 @@ def test_create_inserts_crawl_job_and_returns_id():
         None,
         0,
         "worker-a",
-        {"place_id": "ChIJ123"},
-        {"cache_hit": False},
-        None,
     )
+    assert params[9].obj == {"place_id": "ChIJ123"}
+    assert params[10].obj == {"cache_hit": False}
+    assert params[11] is None
 
 
 def test_mark_running_sets_status_started_at_and_increments_attempt_count():
@@ -92,11 +92,9 @@ def test_mark_success_sets_finished_at_stats_and_clears_error_message():
     query, params = session.execute_calls[0]
     assert "status = 'success'" in query
     assert "error_message = NULL" in query
-    assert params == (
-        finished_at,
-        {"cache_hit": True, "raw_document_id": 9, "restaurant_id_count": 1, "content_count": 0},
-        7,
-    )
+    assert params[0] == finished_at
+    assert params[1].obj == {"cache_hit": True, "raw_document_id": 9, "restaurant_id_count": 1, "content_count": 0}
+    assert params[2] == 7
 
 
 def test_mark_failed_sets_finished_at_error_and_stats():
@@ -113,4 +111,7 @@ def test_mark_failed_sets_finished_at_error_and_stats():
 
     query, params = session.execute_calls[0]
     assert "status = 'failed'" in query
-    assert params == (finished_at, {"cache_hit": False, "content_count": 0}, "rate limit", 7)
+    assert params[0] == finished_at
+    assert params[1].obj == {"cache_hit": False, "content_count": 0}
+    assert params[2] == "rate limit"
+    assert params[3] == 7

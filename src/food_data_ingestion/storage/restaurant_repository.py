@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
+from food_data_ingestion.db.json import as_jsonb
 from food_data_ingestion.models.restaurant import ParsedPlaceDetail
 
 
@@ -72,9 +73,9 @@ class RestaurantRepository:
                     parsed.restaurant.price_level,
                     parsed.restaurant.average_rating,
                     parsed.restaurant.rating_count,
-                    parsed.restaurant.business_hours,
+                    as_jsonb(parsed.restaurant.business_hours),
                     parsed.restaurant.is_closed,
-                    parsed.restaurant.source_meta,
+                    as_jsonb(parsed.restaurant.source_meta),
                     restaurant_id,
                 ),
             )
@@ -120,9 +121,9 @@ class RestaurantRepository:
                     parsed.restaurant.price_level,
                     parsed.restaurant.average_rating,
                     parsed.restaurant.rating_count,
-                    parsed.restaurant.business_hours,
+                    as_jsonb(parsed.restaurant.business_hours),
                     parsed.restaurant.is_closed,
-                    parsed.restaurant.source_meta,
+                    as_jsonb(parsed.restaurant.source_meta),
                 ),
             )
             if not row or "id" not in row:
@@ -155,7 +156,7 @@ class RestaurantRepository:
                     ref.external_url,
                     ref.ref_type,
                     ref.is_primary,
-                    ref.metadata,
+                    as_jsonb(ref.metadata),
                 ),
             )
 

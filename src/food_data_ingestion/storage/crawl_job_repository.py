@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Protocol
 
+from food_data_ingestion.db.json import as_jsonb
 from food_data_ingestion.models.crawl_job import CrawlJobCreate
 
 
@@ -48,8 +49,8 @@ class CrawlJobRepository:
                 payload.finished_at,
                 payload.attempt_count,
                 payload.worker_name,
-                payload.request_meta,
-                payload.stats,
+                as_jsonb(payload.request_meta),
+                as_jsonb(payload.stats),
                 payload.error_message,
             ),
         )
@@ -82,7 +83,7 @@ class CrawlJobRepository:
                 updated_at = NOW()
             WHERE id = %s
             """,
-            (finished_at, stats or {}, job_id),
+            (finished_at, as_jsonb(stats or {}), job_id),
         )
 
     def mark_failed(
@@ -103,5 +104,5 @@ class CrawlJobRepository:
                 updated_at = NOW()
             WHERE id = %s
             """,
-            (finished_at, stats or {}, error_message, job_id),
+            (finished_at, as_jsonb(stats or {}), error_message, job_id),
         )

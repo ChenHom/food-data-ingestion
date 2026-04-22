@@ -41,6 +41,11 @@ class RestaurantRepositoryProtocol(Protocol):
     def upsert(self, parsed: Any) -> int: ...
 
 
+class TransactionManagerProtocol(Protocol):
+    def commit(self) -> None: ...
+    def rollback(self) -> None: ...
+
+
 class IngestionService:
     def __init__(
         self,
@@ -52,6 +57,7 @@ class IngestionService:
         restaurant_repository: RestaurantRepositoryProtocol,
         parser: Callable[[RawDocumentCreate], Any],
         now_provider: Callable[[], datetime] | None = None,
+        transaction_manager: TransactionManagerProtocol | None = None,
     ) -> None:
         self.connector = connector
         self.crawl_job_repository = crawl_job_repository
@@ -60,6 +66,7 @@ class IngestionService:
         self.restaurant_repository = restaurant_repository
         self.parser = parser
         self.now_provider = now_provider or (lambda: datetime.now(UTC))
+        self.transaction_manager = transaction_manager
 
     def ingest_google_place_detail(self, place_id: str) -> IngestionResult:
         now = self.now_provider()
@@ -94,6 +101,7 @@ class IngestionService:
                     fetched_at=fetch_result["fetched_at"],
                     refresh_after=fetch_result.get("refresh_after"),
                     expires_at=fetch_result["expires_at"],
+                    last_accessed_at=fetch_result["fetched_at"],
                     is_error=fetch_result.get("is_error", False),
                     error_message=fetch_result.get("error_message"),
                     source_meta=fetch_result.get("source_meta") or {},
@@ -114,6 +122,8 @@ class IngestionService:
                         source_meta=fetch_result.get("source_meta") or {},
                     )
                 )
+                if self.transaction_manager is not None:
+                    self.transaction_manager.commit()
 
             parser_input = RawDocumentCreate(
                 crawl_job_id=job_id,
@@ -130,6 +140,8 @@ class IngestionService:
             )
             parsed = self.parser(parser_input)
             restaurant_id = self.restaurant_repository.upsert(parsed)
+            if self.transaction_manager is not None:
+                self.transaction_manager.commit()
             finished_at = self.now_provider()
             self.crawl_job_repository.mark_success(
                 job_id,
@@ -141,6 +153,8 @@ class IngestionService:
                     "content_count": 0,
                 },
             )
+            if self.transaction_manager is not None:
+                self.transaction_manager.commit()
             return IngestionResult(
                 cache_hit=cache_hit,
                 job_id=job_id,
@@ -148,6 +162,8 @@ class IngestionService:
                 restaurant_id=restaurant_id,
             )
         except Exception as exc:
+            if self.transaction_manager is not None:
+                self.transaction_manager.rollback()
             finished_at = self.now_provider()
             self.crawl_job_repository.mark_failed(
                 job_id,
@@ -159,4 +175,6 @@ class IngestionService:
                     "content_count": 0,
                 },
             )
+            if self.transaction_manager is not None:
+                self.transaction_manager.commit()
             raise
