@@ -22,7 +22,9 @@
 
 策略：
 - 作為店家主檔與長文心得的主要來源
-- 能用官方 API 就優先用官方 API
+- **優先用免費來源做 discovery，再用 Google Places 補主檔**
+- Google Places 預設只做 `place_id` 驅動的 place detail
+- keyword search / nearby search 不作為第一版預設入口
 - URL 類型頁面先做 request cache + raw 落地
 
 ### B 級：可做，但需低頻與風險隔離
@@ -54,6 +56,11 @@
 3. 每次抓取都要保留來源資訊
 4. 失敗結果不可長時間快取
 5. 不同來源要用不同 TTL 與頻率策略
+6. 預設先走免費來源 discovery，再進付費 enrichment
+7. 付費 API 必須有每日 budget guard
+8. 各 job 的年份範圍、文章類型與處理邊界應由 job policy 決定
+9. 各來源 parser 規則應由 parser profile 決定，不要散落在 job 與 repository 內
+10. parser 產出的 discovery 結果應先轉成統一的 normalized model，再交給統一入口寫入
 
 ## 2.2 單次抓取流程
 
@@ -71,6 +78,19 @@
    - 更新 api_request_cache
    - 將 raw 交給 parser
 
+### 2.2.1 第一版免費優先流程
+
+第一版預設流程應為：
+
+1. 從免費來源取得候選店家資料
+   - seed 名單
+   - 公開文章 / URL / 論壇頁
+   - 已知 Google Maps 分享連結
+2. 抽取並正規化店名、地址、URL 等識別資訊
+3. 盡可能先收斂成 `place_id`
+4. 僅在已取得 `place_id` 後才進入 Google Places detail ingestion
+5. `searchText` / `Nearby Search` 僅能作為少量 fallback，且必須受 budget guard 控制
+
 ## 2.3 cache 規則
 
 本節只描述 cache 策略原則；**固定 TTL 數值以 `docs/implementation-spec.md` 第 7 節為唯一真相來源**。
@@ -83,8 +103,9 @@
 
 ### 搜尋結果頁
 例如某地區餐廳搜尋
-- TTL：依 implementation-spec 固定值執行
-- 用途：減少短時間重複搜尋
+- 第一版不作為預設流程
+- 若 fallback 啟用：TTL 依 implementation-spec 固定值執行
+- 用途：僅限少量補洞，避免重複搜尋
 
 ### 文章 / 貼文 detail
 - TTL：依 implementation-spec 固定值執行
@@ -110,6 +131,8 @@
 - 每個 target 要有 crawl lock
 - 429 / 403 要有 cooldown 機制
 - 相同 external_id / content_hash 要去重
+- 付費 API 要有每日 budget guard
+- 付費 search 要有顯式開關，預設關閉
 
 第一版補充規則：
 - crawl lock 明確採 PostgreSQL `pg_try_advisory_lock(...)`
@@ -123,11 +146,21 @@
 
 建議：
 - 優先用來建 restaurants 主檔
-- place detail、place search 可直接接 cache 表
+- 預設只做 `place_detail(place_id)`
+- place detail 可直接接 cache 表
+- field mask 先收斂在建主檔最小必要欄位
 - 請求應記錄 request_params 與 provider
+
+第一版免費優先策略：
+- `place_id` 為主入口，不以 keyword search 當預設入口
+- search / nearby 僅作少量 fallback，用於免費來源無法補齊 `place_id` 的情況
+- detail 預設走冷資料 TTL；熱資料需由 `crawl_policy` 或明確 target policy 升級
+- Places detail、Geocoding、Places search 都要有每日 request budget
 
 禁止：
 - 把 Places API 當作唯一真相而不留 raw
+- 在第一版把 paid search 當成市場掃描主力
+- 沒有 budget guard 就直接放大 Places search / Nearby Search
 
 ## 3.3 Google Maps 公開頁
 
@@ -184,9 +217,10 @@
 ## 六、第一版建議來源策略
 
 ### 起手式
-1. Google Places API：店家主檔
-2. Blog / article scraper：長文心得
-3. IG / Threads：定向蒐集公開貼文
+1. 免費來源 discovery：seed 名單、URL、文章頁、論壇頁
+2. Google Places API：以 `place_id` 補店家主檔
+3. Blog / article scraper：長文心得
+4. IG / Threads：定向蒐集公開貼文
 
 ### 建議 target 類型
 - keyword
@@ -201,7 +235,7 @@
 ## 七、第一版實作順序
 
 1. 完成 cache repository 與 DB adapter
-2. 先接 Google Places API connector
+2. 先接 `place_id` 驅動的 Google Places detail connector
 3. 建 raw landing + parser pipeline
-4. 接 article scraper
-5. 最後才接 IG / Threads / Maps PoC
+4. 接免費來源 discovery（article / URL / seed 名單）
+5. 最後才評估少量 search fallback 與 IG / Threads / Maps PoC

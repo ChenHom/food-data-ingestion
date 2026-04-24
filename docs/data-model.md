@@ -10,7 +10,7 @@
 
 1. 調度層：`source_targets`, `crawl_jobs`
 2. 快取與 raw 層：`api_request_cache`, `raw_documents`, `raw_assets`
-3. 結構化實體層：`restaurants`, `contents`, `content_restaurant_links`
+3. discovery staging 與結構化實體層：`discovered_place_candidates`, `restaurants`, `contents`, `content_restaurant_links`
 4. 標註與觀測層：`review_aspects`, `tags`, `restaurant_tags`, `content_tags`, `ingestion_logs`
 
 ---
@@ -50,16 +50,22 @@
 - 以 `crawl_policy` 保存 target-level 的抓取策略覆寫
 
 例子：
-- platform=google_places, target_type=keyword, target_value=台北拉麵
-- platform=instagram, target_type=hashtag, target_value=台北咖啡廳
+- platform=google_places, target_type=place_id, target_value=ChIJ...
 - platform=blog, target_type=url, target_value=https://...
+- platform=instagram, target_type=hashtag, target_value=台北咖啡廳
 
 `crawl_policy` 建議至少支援：
+- `freshness_profile`
 - `ttl_seconds`
 - `refresh_after_seconds`
 - `cooldown_seconds`
 - `max_retries`
+- `daily_budget`
 - `rate_limit_bucket`
+
+補充：
+- 第一版 `google_places` 預設 target 應優先是 `place_id`
+- `keyword` / `geo_area` 可存在於 `source_targets`，但第一版應優先用於免費來源 discovery，而不是直接驅動 paid Places search
 
 ## 2.3 crawl_jobs
 
@@ -110,7 +116,36 @@
 
 第一版可只存 URL 與 metadata，真正下載可延後。
 
-## 2.6 restaurants
+## 2.6 discovered_place_candidates
+
+用途：
+- 保存免費來源 discovery 產出的標準候選店家
+- 作為 `UnifiedDiscoveryIngestionService` 的第一版正式 staging 入口
+- 提供後續 entity resolution、Google Places enrichment、人工 review 的穩定輸入
+
+關鍵欄位：
+- `source_platform`
+- `source_url`
+- `source_name`
+- `candidate_name`
+- `address`
+- `phone`
+- `opening_hours`
+- `confidence_score`
+- `extraction_method`
+- `parser_profile`
+- `article_type`
+- `raw_document_id`
+- `source_meta`
+- `candidate_key`
+
+規則：
+- 第一版 discovery 不直接寫 `restaurants`，先寫入 staging table
+- `source_meta` 應保留 article context 與 candidate context，避免後續 resolution 無法回推
+- `candidate_key` 用於同來源同文章候選的穩定去重鍵
+- `raw_document_id` 應能回推原始文章落地資料
+
+## 2.7 restaurants
 
 用途：
 - 店家主檔
@@ -125,7 +160,7 @@
 - `rating_count`
 - `business_hours`
 
-## 2.7 restaurant_external_refs
+## 2.8 restaurant_external_refs
 
 用途：
 - 對映同一家店在不同平台的 external id
@@ -139,12 +174,12 @@
 - `UNIQUE(platform, external_id)`
 - restaurant master 與外部平台應分離，不要寫死在 restaurants 主表
 
-## 2.8 restaurant_aliases
+## 2.9 restaurant_aliases
 
 用途：
 - 處理店名變體、支店名稱、俗稱、縮寫
 
-## 2.9 contents
+## 2.10 contents
 
 用途：
 - 將 review / social post / article 抽成統一內容表

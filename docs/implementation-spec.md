@@ -25,7 +25,7 @@
 
 - PostgreSQL 連線設定與 adapter
 - `ingestion.api_request_cache` 的實際 DB 接線
-- 單一來源 connector（優先 `Google Places`）
+- 單一來源 connector（優先 `Google Places`，且以 `place_id` 驅動的 place detail 為主）
 - raw landing：把外部回應寫進 `ingestion.raw_documents`
 - 第一版 parser：將 places detail 轉成 `restaurants` 與 `restaurant_external_refs`
 - 基本 job 記錄：建立 / 更新 `crawl_jobs`
@@ -34,6 +34,7 @@
 補充說明：
 - `contents`、`content_restaurant_links`、`review_aspects`、`tags` 相關資料表屬於第一版 schema 預留範圍
 - 但它們**不屬於首波 Phase 1–5 驗收交付內容**；首波仍以 Google Places → restaurant ingestion 鏈為主
+- 第一版採 **免費優先**：先從免費來源做 discovery，再用 Google Places detail 補 restaurant 主檔
 
 ### 2.2 Out of Scope
 
@@ -41,6 +42,7 @@
 
 - Redis 正式接線
 - IG / Threads / Google Maps 大量抓取
+- Places keyword / nearby search 作為預設主流程
 - 前端介面
 - 排程器 daemon / worker pool
 - embedding、向量搜尋、推薦排序模型
@@ -78,19 +80,28 @@ DDL 已建立以下主要表：
 - `ingestion.restaurant_tags`
 - `ingestion.content_tags`
 - `ingestion.ingestion_logs`
+- `ingestion.discovered_place_candidates`
 
 ### 3.3 現況限制
 
-目前專案只有「schema + model + repository 雛形」，還沒有：
+目前專案已經有：
 
-- 真實 PostgreSQL adapter
-- connector runtime
-- raw repository
-- restaurant parser / repository
-- job lifecycle service
-- 端到端 smoke command
+- `GooglePlacesConnector` 與對應 parser / ingestion service / smoke command
+- `RawDocumentRepository` / `RestaurantRepository` / `CrawlJobRepository`
+- `CandylifeArticleDiscoveryService`
+- `CandylifeDiscoveryPolicy` / `CandylifeParserProfile`
+- `DiscoveredArticle` / `DiscoveredPlaceCandidate`
+- `UnifiedDiscoveryIngestionService`
+- `DiscoveredPlaceCandidateRepository`
+- 可直接跑的 `run_candylife_discovery` CLI
 
-所以接下來的文件要從「介紹」升級成「可照做的規格」。
+目前尚在收尾 / 後續主缺口：
+
+- discovery candidate → entity resolution / Places enrichment 的後續鏈路
+- 更多 source-target / crawl policy / parser profile 擴充
+- `contents` / linking / tags / aspects 的後續 phase
+
+因此這份文件後續應以「已落地的 discovery staging + Google Places ingestion 基礎 + 下一段 enrichment / matching」為主。
 
 ---
 
@@ -106,6 +117,13 @@ src/food_data_ingestion/
     __init__.py
     connection.py
     psycopg_session.py
+  discovery/
+    __init__.py
+    models.py
+    service.py
+  parser_profiles/
+    __init__.py
+    candylife.py
   models/
     __init__.py
     cache.py
@@ -116,21 +134,27 @@ src/food_data_ingestion/
     __init__.py
     cache_repository.py
     raw_repository.py
+    discovered_candidate_repository.py
     restaurant_repository.py
     crawl_job_repository.py
   connectors/
     __init__.py
     base.py
     google_places.py
+    candylife.py
   parsers/
     __init__.py
     google_places.py
+    candylife.py
+    candylife_feed.py
   services/
     __init__.py
     ingestion_service.py
+    article_discovery.py
   jobs/
     __init__.py
     run_google_places_sync.py
+    run_candylife_discovery.py
 ```
 
 ### 4.1 `config.py`

@@ -53,9 +53,9 @@
                                    │
                                    ▼
          ┌────────────────────────────────────────────────────────┐
-         │               Structured Storage                      │
-         │ restaurants / external_refs / contents / links        │
-         │ review_aspects / tags / restaurant_tags / content_tags│
+         │          Discovery Staging + Structured Storage       │
+         │ discovered_place_candidates / restaurants / refs      │
+         │ contents / links / aspects / tags                     │
          └────────────────────────────────────────────────────────┘
                                    │
                                    ▼
@@ -76,11 +76,17 @@
 - 先查 cache，再決定是否發請求
 - 取得 response 後落 raw
 
+第一版補充：
+- Google Places connector 預設只做 `place_detail(place_id)`
+- 免費來源 discovery（文章 / URL / seed 名單）與 paid enrichment 應分開看待
+- `searchText` / `Nearby Search` 不作為第一版預設主流程
+
 ### 2. storage/
 責任：
 - 封裝 DB 存取
 - cache repository
 - raw repository
+- discovery candidate staging repository
 - content / restaurant repository
 
 ### 3. parsers/
@@ -89,12 +95,30 @@
 - 將不同來源轉成統一內容模型
 - 做 normalize、dedupe、linking 前處理
 
-### 4. jobs/
+補充：
+- parser 不應直接決定 DB 寫入細節
+- 不同來源的 parser 規則應顯性化成對應的 parser profile
+- parser 最終應輸出統一的 `DiscoveredArticle` / `DiscoveredPlaceCandidate` 或其他標準 domain model
+
+### 4. parser_profiles/
+責任：
+- 定義來源 / target 專屬規則
+- 例如年份範圍、文章類型、欄位可信度、抽取方法與 normalized output mapping
+- 讓 job 與 parser 各自依 profile 運作，而不是把規則散在 job 與 parser 內
+
+### 5. jobs/
 責任：
 - 產生 crawl jobs
 - 重試
 - cooldown
 - queue orchestration
+- 套用各 job 自己的 source policy / target policy
+
+### 6. discovery/
+責任：
+- 定義免費來源 discovery 的統一資料模型
+- 提供統一候選寫入入口
+- 吸收各 parser profile 轉好的標準輸出
 
 ---
 
@@ -111,15 +135,15 @@
 7. upsert `api_request_cache`
 8. parser 抽成 `restaurants` 與 `restaurant_external_refs`
 
-### 流程 B：抓文章 / 貼文內容
+### 流程 B：免費來源 discovery 候選流
 
 1. scheduler 建立 crawl job
-2. connector 先查 cache
-3. miss 時抓真實頁面
-4. raw 落 `raw_documents`
-5. parser 抽成 `contents`
-6. matcher 對到 `restaurants`
-7. aspect / tag pipeline 補 `review_aspects` 與 `content_tags`
+2. connector 先查 cache 或抓真實頁面
+3. raw 落 `raw_documents`
+4. source parser 抽原始欄位
+5. parser profile 轉成 `DiscoveredArticle` / `DiscoveredPlaceCandidate`
+6. `UnifiedDiscoveryIngestionService` 寫入 `ingestion.discovered_place_candidates`
+7. 後續再做 entity resolution、Places enrichment、人工 review 或正式餐廳主檔寫入
 
 ---
 
@@ -129,7 +153,7 @@
 
 1. DB adapter
 2. cache service
-3. Google Places connector
+3. `place_id` 驅動的 Google Places detail connector
 4. raw parser pipeline
 5. restaurant persistence / end-to-end ingestion service
 
