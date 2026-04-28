@@ -103,9 +103,11 @@ _STUB_ARTICLE_FOOD = {
 
 
 class StubSupertasteFetcher:
+    """符合 SupertasteFetcherProtocol，可直接注入 SupertasteConnector。"""
+
     base_url = "https://stub"
 
-    def fetch_sitemap_index(self, url=None) -> str:
+    def fetch_sitemap_index(self, url: str | None = None) -> str:
         return _STUB_INDEX
 
     def fetch_sitemap(self, url: str) -> str:
@@ -115,26 +117,6 @@ class StubSupertasteFetcher:
         if category == "pack":
             return json.dumps(_STUB_ARTICLE_PACK)
         return json.dumps(_STUB_ARTICLE_FOOD)
-
-
-class _FetcherAdapter:
-    """包裝一個 duck-typed fetcher，讓 SupertasteConnector 可以使用。"""
-
-    def __init__(self, inner) -> None:
-        self._inner = inner
-        self.base_url = getattr(inner, "base_url", "https://supertaste.tvbs.com.tw")
-
-    def fetch_sitemap_index(self, url=None) -> str:
-        try:
-            return self._inner.fetch_sitemap_index(url)
-        except TypeError:
-            return self._inner.fetch_sitemap_index()
-
-    def fetch_sitemap(self, url: str) -> str:
-        return self._inner.fetch_sitemap(url)
-
-    def fetch_article(self, category: str, article_id: str) -> str:
-        return self._inner.fetch_article(category, article_id)
 
 
 def run_supertaste_discovery(
@@ -168,7 +150,7 @@ def run_supertaste_discovery(
 
     connector = SupertasteConnector(
         cache_repository=cache_repository,
-        fetcher=fetcher if isinstance(fetcher, SupertasteLiveFetcher) else _FetcherAdapter(fetcher),
+        fetcher=fetcher,
     )
     ctx = IngestionContext(
         crawl_job_repository=crawl_job_repository,

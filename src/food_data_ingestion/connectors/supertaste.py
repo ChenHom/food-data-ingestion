@@ -49,6 +49,19 @@ class HTTPClientProtocol(Protocol):
     def fetch_text(self, url: str, *, headers: dict[str, str], timeout: int) -> str: ...
 
 
+class SupertasteFetcherProtocol(Protocol):
+    """任何能依此契約抓 sitemap/article 的物件都可注入 SupertasteConnector
+    （含正式 SupertasteLiveFetcher 與測試用 stub fetcher）。"""
+
+    base_url: str
+
+    def fetch_sitemap_index(self, url: str | None = None) -> str: ...
+
+    def fetch_sitemap(self, url: str) -> str: ...
+
+    def fetch_article(self, category: str, article_id: str) -> str: ...
+
+
 @dataclass
 class UrllibHTTPClient:
     def fetch_text(self, url: str, *, headers: dict[str, str], timeout: int) -> str:
@@ -95,7 +108,7 @@ class SupertasteConnector:
         self,
         *,
         cache_repository: CacheRepositoryProtocol,
-        fetcher: SupertasteLiveFetcher | None = None,
+        fetcher: SupertasteFetcherProtocol | None = None,
         now_provider: Callable[[], datetime] | None = None,
     ) -> None:
         self.cache_repository = cache_repository
