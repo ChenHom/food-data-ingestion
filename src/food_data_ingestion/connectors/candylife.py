@@ -33,6 +33,15 @@ class HTTPClientProtocol(Protocol):
     def fetch_text(self, url: str, *, headers: dict[str, str], timeout: int) -> str: ...
 
 
+class CandylifeFetcherProtocol(Protocol):
+    """任何能依此契約抓 feed/HTML 的物件都可注入 CandylifeConnector
+    （包含正式的 CandylifeLiveFetcher 與測試用的 stub fetcher）。"""
+
+    def fetch_feed(self, url: str | None = None) -> str: ...
+
+    def fetch_html(self, url: str) -> str: ...
+
+
 @dataclass
 class UrllibHTTPClient:
     def fetch_text(self, url: str, *, headers: dict[str, str], timeout: int) -> str:
@@ -79,7 +88,7 @@ class CandylifeConnector:
         self,
         *,
         cache_repository: CacheRepositoryProtocol,
-        fetcher: CandylifeLiveFetcher | None = None,
+        fetcher: CandylifeFetcherProtocol | None = None,
         now_provider: Callable[[], datetime] | None = None,
     ) -> None:
         self.cache_repository = cache_repository

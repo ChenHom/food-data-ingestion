@@ -12,7 +12,7 @@ class FakeFetcher:
         self.feed_calls = 0
         self.html_calls = []
 
-    def fetch_feed(self) -> str:
+    def fetch_feed(self, url: str | None = None) -> str:
         self.feed_calls += 1
         return self.feed_xml
 

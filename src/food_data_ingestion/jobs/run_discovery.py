@@ -66,6 +66,11 @@ def _resolve_targets(
     if settings is None:
         settings = Settings.from_env()
     connection = create_connection(settings)
+    # 從 ingestion.source_targets 讀出「要跑哪些 target」與每個 target 的完整設定
+    # （crawl_policy、region、language、priority、source_meta…），再交給後面的
+    # ThreadPoolExecutor 平行執行。動態配置放在 DB，可不改程式就調整。
+    # 這裡同時套用 CLI 的 --platform 篩選與 --exclude-source-target-id 排除。
+    # 沒有 --write-db 時不會走到這裡（前面已用 stub task 直接 return）。
     rows = SourceTargetRepository(PsycopgSession(connection)).list_enabled(
         platforms=platforms,
         exclude_ids=exclude_ids,

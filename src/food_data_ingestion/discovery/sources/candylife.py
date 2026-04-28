@@ -31,6 +31,8 @@ PLATFORM = "candylife"
 
 
 class StubCandylifeFetcher:
+    """可直接注入 CandylifeConnector。"""
+
     def fetch_feed(self, url: str | None = None) -> str:
         return '''<?xml version="1.0" encoding="UTF-8"?>
         <rss version="2.0"><channel>
@@ -42,22 +44,6 @@ class StubCandylifeFetcher:
         if url.endswith('/a/'):
             return '<html><head><title>阿發現炒｜單店 - 糖糖\'s 享食生活</title></head><body><article><h1>阿發現炒｜單店</h1><p>《店家資訊》</p><p>店家：阿發現炒 電話：04-12345678 地址：台中市中區測試路1號 時間：10:00~18:00</p></article></body></html>'
         return '<html><head><title>台中乳酪蛋糕懶人包 - 糖糖\'s 享食生活</title></head><body><article><h1>台中乳酪蛋糕懶人包</h1></article></body></html>'
-
-
-class _FetcherAdapter:
-    """包裝一個 duck-typed fetcher（帶有 fetch_feed/fetch_html），讓 CandylifeConnector 可以使用。"""
-
-    def __init__(self, inner) -> None:
-        self._inner = inner
-
-    def fetch_feed(self, url: str | None = None) -> str:
-        try:
-            return self._inner.fetch_feed(url)
-        except TypeError:
-            return self._inner.fetch_feed()
-
-    def fetch_html(self, url: str) -> str:
-        return self._inner.fetch_html(url)
 
 
 def run_candylife_discovery(
@@ -72,7 +58,7 @@ def run_candylife_discovery(
     transaction_manager=None,
     source_target: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """執行一次 candylife discovery。與舊版 job entry 的 signature 相同。"""
+    """執行一次 candylife discovery"""
     crawl_policy = (source_target or {}).get('crawl_policy') or {}
     effective_min_year = int(crawl_policy.get('min_year', min_year))
     effective_limit = int(crawl_policy.get('limit', limit))
@@ -86,7 +72,7 @@ def run_candylife_discovery(
 
     connector = CandylifeConnector(
         cache_repository=cache_repository,
-        fetcher=fetcher if isinstance(fetcher, CandylifeLiveFetcher) else _FetcherAdapter(fetcher),
+        fetcher=fetcher,
     )
     ctx = IngestionContext(
         crawl_job_repository=crawl_job_repository,
