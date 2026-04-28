@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from food_data_ingestion.jobs.run_candylife_discovery import run_candylife_discovery
+from food_data_ingestion.discovery.sources.candylife import run_candylife_discovery
 
 
 class FakeFetcher:

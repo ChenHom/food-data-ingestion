@@ -6,7 +6,7 @@ from uuid import uuid4
 from food_data_ingestion.config import Settings
 from food_data_ingestion.db.connection import create_connection
 from food_data_ingestion.db.psycopg_session import PsycopgSession
-from food_data_ingestion.jobs.run_candylife_discovery import create_db_backed_repositories
+from food_data_ingestion.discovery.sources._shared import create_db_backed_repositories
 
 
 def test_create_db_backed_repositories_returns_real_db_repositories_when_db_smoke_enabled():
@@ -15,12 +15,12 @@ def test_create_db_backed_repositories_returns_real_db_repositories_when_db_smok
 
     connection = create_connection(Settings.from_env())
     try:
-        raw_repository, candidate_repository = create_db_backed_repositories(connection)
+        deps = create_db_backed_repositories(connection)
     finally:
         connection.close()
 
-    assert raw_repository.__class__.__name__ == "RawDocumentRepository"
-    assert candidate_repository.__class__.__name__ == "DiscoveredPlaceCandidateRepository"
+    assert deps["raw_repository"].__class__.__name__ == "RawDocumentRepository"
+    assert deps["candidate_repository"].__class__.__name__ == "DiscoveredPlaceCandidateRepository"
 
 
 def test_create_db_backed_repositories_uses_session_that_can_write_when_db_smoke_enabled():
@@ -31,8 +31,8 @@ def test_create_db_backed_repositories_uses_session_that_can_write_when_db_smoke
     connection = create_connection(Settings.from_env())
     try:
         connection.autocommit = False
-        raw_repository, _ = create_db_backed_repositories(connection)
-        raw_document_id = raw_repository.create(
+        deps = create_db_backed_repositories(connection)
+        raw_document_id = deps["raw_repository"].create(
             payload=__import__("food_data_ingestion.models.raw_document", fromlist=["RawDocumentCreate"]).RawDocumentCreate(
                 platform="candylife",
                 document_type="article",

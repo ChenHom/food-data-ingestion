@@ -6,6 +6,8 @@ from typing import Any, Protocol
 class SessionProtocol(Protocol):
     def fetchone(self, query: str, params: tuple[Any, ...]) -> dict[str, Any] | None: ...
 
+    def fetchall(self, query: str, params: tuple[Any, ...]) -> list[dict[str, Any]]: ...
+
 
 class SourceTargetRepository:
     def __init__(self, session: SessionProtocol):
@@ -46,3 +48,40 @@ class SourceTargetRepository:
         if isinstance(crawl_policy, dict):
             return crawl_policy
         return {}
+
+    def list_enabled(
+        self,
+        *,
+        platforms: list[str] | tuple[str, ...] | None = None,
+        exclude_ids: list[int] | tuple[int, ...] | None = None,
+    ) -> list[dict[str, Any]]:
+        """List enabled source_targets, optionally filtered by platform allowlist
+        and excluding specified ids."""
+        clauses = ["enabled = TRUE"]
+        params: list[Any] = []
+        if platforms:
+            clauses.append("platform = ANY(%s)")
+            params.append(list(platforms))
+        if exclude_ids:
+            clauses.append("id <> ALL(%s)")
+            params.append(list(exclude_ids))
+        where = " AND ".join(clauses)
+        return self.session.fetchall(
+            f"""
+            SELECT
+                id,
+                platform,
+                target_type,
+                target_value,
+                region,
+                language,
+                enabled,
+                priority,
+                crawl_policy,
+                source_meta
+            FROM ingestion.source_targets
+            WHERE {where}
+            ORDER BY priority DESC NULLS LAST, id ASC
+            """,
+            tuple(params),
+        )
