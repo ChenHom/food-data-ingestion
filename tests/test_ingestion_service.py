@@ -50,18 +50,6 @@ class FakeCrawlJobRepository:
         self.skipped.append((job_id, finished_at, error_message, stats))
 
 
-class FakeCacheRepository:
-    def __init__(self):
-        self.upserts = []
-        self.mark_hits = []
-
-    def upsert(self, entry):
-        self.upserts.append(entry)
-
-    def mark_hit(self, cache_key, *, accessed_at):
-        self.mark_hits.append((cache_key, accessed_at))
-
-
 class FakeRawRepository:
     def __init__(self):
         self.created = []
@@ -136,13 +124,11 @@ def test_ingest_google_place_detail_cache_miss_writes_cache_raw_and_restaurant()
         }
     )
     crawl_jobs = FakeCrawlJobRepository()
-    cache_repository = FakeCacheRepository()
     raw_repository = FakeRawRepository()
     restaurant_repository = FakeRestaurantRepository()
     service = IngestionService(
         connector=connector,
         crawl_job_repository=crawl_jobs,
-        cache_repository=cache_repository,
         raw_repository=raw_repository,
         restaurant_repository=restaurant_repository,
         parser=fake_parser,
@@ -156,8 +142,6 @@ def test_ingest_google_place_detail_cache_miss_writes_cache_raw_and_restaurant()
     assert result.job_id == 1
     assert result.raw_document_id == 10
     assert result.restaurant_id == 100
-    assert len(cache_repository.upserts) == 1
-    assert cache_repository.mark_hits == []
     assert len(raw_repository.created) == 1
     assert len(restaurant_repository.calls) == 1
     assert crawl_jobs.success[0][2] == {
@@ -191,13 +175,11 @@ def test_ingest_google_place_detail_cache_hit_marks_hit_and_skips_raw_write():
         }
     )
     crawl_jobs = FakeCrawlJobRepository()
-    cache_repository = FakeCacheRepository()
     raw_repository = FakeRawRepository()
     restaurant_repository = FakeRestaurantRepository()
     service = IngestionService(
         connector=connector,
         crawl_job_repository=crawl_jobs,
-        cache_repository=cache_repository,
         raw_repository=raw_repository,
         restaurant_repository=restaurant_repository,
         parser=fake_parser,
@@ -208,8 +190,6 @@ def test_ingest_google_place_detail_cache_hit_marks_hit_and_skips_raw_write():
 
     assert result.cache_hit is True
     assert result.raw_document_id is None
-    assert cache_repository.upserts == []
-    assert cache_repository.mark_hits == [("google_places:v1:place_detail:abc", now)]
     assert raw_repository.created == []
     assert len(restaurant_repository.calls) == 1
 
@@ -237,7 +217,6 @@ def test_ingest_google_place_detail_marks_job_failed_when_parser_raises():
         }
     )
     crawl_jobs = FakeCrawlJobRepository()
-    cache_repository = FakeCacheRepository()
     raw_repository = FakeRawRepository()
     restaurant_repository = FakeRestaurantRepository()
 
@@ -247,7 +226,6 @@ def test_ingest_google_place_detail_marks_job_failed_when_parser_raises():
     service = IngestionService(
         connector=connector,
         crawl_job_repository=crawl_jobs,
-        cache_repository=cache_repository,
         raw_repository=raw_repository,
         restaurant_repository=restaurant_repository,
         parser=parser_raises,
@@ -257,7 +235,6 @@ def test_ingest_google_place_detail_marks_job_failed_when_parser_raises():
     with pytest.raises(ValueError, match="broken parser"):
         service.ingest_google_place_detail("abc")
 
-    assert len(cache_repository.upserts) == 1
     assert len(raw_repository.created) == 1
     assert restaurant_repository.calls == []
     assert crawl_jobs.failed[0][2] == "parser_error: broken parser"
@@ -292,7 +269,6 @@ def test_ingest_google_place_detail_reads_source_target_crawl_policy_and_passes_
     service = IngestionService(
         connector=connector,
         crawl_job_repository=crawl_jobs,
-        cache_repository=FakeCacheRepository(),
         raw_repository=FakeRawRepository(),
         restaurant_repository=FakeRestaurantRepository(),
         parser=fake_parser,
@@ -323,7 +299,6 @@ def test_ingest_google_place_detail_marks_job_skipped_when_advisory_lock_not_acq
     service = IngestionService(
         connector=connector,
         crawl_job_repository=crawl_jobs,
-        cache_repository=FakeCacheRepository(),
         raw_repository=FakeRawRepository(),
         restaurant_repository=FakeRestaurantRepository(),
         parser=fake_parser,

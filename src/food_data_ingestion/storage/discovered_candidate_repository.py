@@ -1,14 +1,36 @@
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
+from datetime import datetime
 from typing import Any, Protocol
 
 from food_data_ingestion.db.json import as_jsonb
 from food_data_ingestion.discovery.models import DiscoveredArticle, DiscoveredPlaceCandidate
 
 
+@dataclass(frozen=True)
+class PendingCandidate:
+    id: int
+    source_platform: str
+    source_url: str
+    source_name: str
+    candidate_name: str
+    address: str | None
+    phone: str | None
+    opening_hours: str | None
+    article_type: str | None
+    parser_profile: str | None
+    raw_document_id: int | None
+    match_attempt_count: int
+    source_meta: dict[str, Any]
+
+
 class SessionProtocol(Protocol):
     def execute_returning(self, query: str, params: tuple[Any, ...]) -> dict[str, Any]: ...
+
+    def fetchall(self, query: str, params: tuple[Any, ...]) -> list[dict[str, Any]]: ...
+
+    def execute(self, query: str, params: tuple[Any, ...]) -> None: ...
 
 
 def build_candidate_key(*, source_platform: str, source_url: str, candidate_name: str, raw_document_id: int | None) -> str:
@@ -96,3 +118,67 @@ class DiscoveredPlaceCandidateRepository:
             )
             inserted_ids.append(int(row["id"]))
         return inserted_ids
+
+    def list_pending_for_match(self, *, limit: int) -> list[PendingCandidate]:
+        rows = self.session.fetchall(
+            """
+            SELECT id, source_platform, source_url, source_name, candidate_name,
+                   address, phone, opening_hours, article_type, parser_profile,
+                   raw_document_id, match_attempt_count, source_meta
+            FROM ingestion.discovered_place_candidates
+            WHERE match_status = 'pending'
+            ORDER BY match_attempt_count ASC, id ASC
+            LIMIT %s
+            """,
+            (limit,),
+        )
+        return [
+            PendingCandidate(
+                id=int(r["id"]),
+                source_platform=r["source_platform"],
+                source_url=r["source_url"],
+                source_name=r["source_name"],
+                candidate_name=r["candidate_name"],
+                address=r["address"],
+                phone=r["phone"],
+                opening_hours=r["opening_hours"],
+                article_type=r["article_type"],
+                parser_profile=r["parser_profile"],
+                raw_document_id=int(r["raw_document_id"]) if r["raw_document_id"] is not None else None,
+                match_attempt_count=int(r["match_attempt_count"] or 0),
+                source_meta=r["source_meta"] or {},
+            )
+            for r in rows
+        ]
+
+    def apply_match_result(
+        self,
+        *,
+        candidate_id: int,
+        match_status: str,
+        matched_place_id: str | None,
+        matched_restaurant_id: int | None,
+        match_meta: dict[str, Any],
+        attempt_at: datetime,
+    ) -> None:
+        self.session.execute(
+            """
+            UPDATE ingestion.discovered_place_candidates
+            SET match_status = %s,
+                matched_place_id = %s,
+                matched_restaurant_id = %s,
+                match_meta = %s,
+                last_match_attempt_at = %s,
+                match_attempt_count = match_attempt_count + 1,
+                updated_at = NOW()
+            WHERE id = %s
+            """,
+            (
+                match_status,
+                matched_place_id,
+                matched_restaurant_id,
+                as_jsonb(match_meta),
+                attempt_at,
+                candidate_id,
+            ),
+        )

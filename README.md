@@ -44,6 +44,7 @@ migration 檔案：
 - `database/migrations/002_add_raw_document_parser_version.sql`
 - `database/migrations/003_add_content_dedup_and_raw_constraints.sql`
 - `database/migrations/004_add_discovered_place_candidates.sql`
+- `database/migrations/005_add_candidate_match_columns.sql`
 
 ## 專案文件
 
@@ -69,6 +70,9 @@ migration 檔案：
 - candylife discovery flow：`job policy → parser profile → normalized candidate → unified ingestion`
 - `run_google_places_sync` CLI
 - `run_candylife_discovery` CLI
+- `run_supertaste_discovery` CLI
+- `run_place_enrichment` CLI（P1：把 pending candidates 匹配到 Google Place + 寫 restaurant 骨架）
+- Google Places connector 已升級到 **Places API (New)** + Essentials FieldMask + `search_text`
 - pytest 與 DB smoke 測試
 
 ## 可執行入口
@@ -109,6 +113,35 @@ PYTHONPATH=src python -m food_data_ingestion.jobs.run_candylife_discovery --min-
 PYTHONPATH=src python -m food_data_ingestion.jobs.run_candylife_discovery --source-target-id <ID> --write-db
 ```
 
+### Place enrichment CLI
+
+把 `discovered_place_candidates` 中 `match_status='pending'` 的候選店家，透過 Google Places **Text Search (New)** + Essentials FieldMask 匹配到 Place，並把成功匹配的結果寫成 `restaurants` 骨架 + 回填 candidate 的 `matched_place_id` / `matched_restaurant_id`。
+
+乾跑（不打 API、不寫 DB，僅顯示會選誰）：
+
+```bash
+PYTHONPATH=src python -m food_data_ingestion.jobs.run_place_enrichment --limit 5 --dry-run
+```
+
+真打 API + 寫 DB：
+
+```bash
+PYTHONPATH=src python -m food_data_ingestion.jobs.run_place_enrichment --limit 5
+```
+
+匹配規則（保守、避免錯配）：
+
+- 0 個結果 → `no_match`
+- 1 個結果 → `matched`
+- 多個結果：候選名稱與 top1 對齊，且 candidate.address token 命中 top1.formatted_address → `matched`；否則 `ambiguous`
+- connector / API 錯誤 → `failed`（不影響其他 candidate，下一輪可重試）
+
+成本控制：
+
+- 一律用 `ESSENTIALS_SEARCH_FIELDS`（最便宜的 SKU），不抓 rating/opening_hours 等 Pro 欄位
+- 補齊 Pro 欄位由獨立 Stage B job 處理（尚未實作）
+- 同 `(text_query, field_mask, language, region)` 結果走 `api_request_cache`，重跑不重複計費
+
 ## 環境需求
 
 至少需要：
@@ -144,7 +177,8 @@ pytest -q
 
 ## 下一步建議
 
-1. 把 discovery candidate staging 接到 entity resolution / place matching
-2. 補 candidate → Google Places enrichment 的正式後續鏈路
-3. 擴更多 source-target / crawl policy / parser profile
-4. 再評估 article / IG / Threads / Maps 的後續 PoC
+1. **GCP 啟用 Places API (New)**：`run_place_enrichment` 已串通，但需要在 Google Cloud Console 為 API key 啟用 "Places API (New)" 並確認 billing，否則會收到 HTTP 403
+2. Stage B：另開 `run_place_enrichment_stage_b` 用 Pro FieldMask 補 rating / opening_hours / price_level
+3. 觀察首輪真打結果，視 `ambiguous` 比例調整 `decide_match` 嚴格度
+4. 擴更多免費來源，把 candidate pool 餵大
+5. 再評估 article / IG / Threads / Maps 的後續 PoC

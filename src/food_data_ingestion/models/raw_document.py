@@ -79,3 +79,33 @@ class RawDocumentCreate:
                 "content_hash",
                 build_content_hash(raw_json=self.raw_json, raw_text=self.raw_text, raw_html=self.raw_html),
             )
+
+    @classmethod
+    def from_fetch_result(
+        cls,
+        fetch_result: dict[str, Any],
+        *,
+        crawl_job_id: int | None = None,
+        source_target_id: int | None = None,
+        external_id: str | None = None,
+        extra_source_meta: dict[str, Any] | None = None,
+    ) -> "RawDocumentCreate":
+        body = fetch_result.get("response_body")
+        meta = dict(fetch_result.get("source_meta") or {})
+        if extra_source_meta:
+            meta.update(extra_source_meta)
+        return cls(
+            crawl_job_id=crawl_job_id,
+            source_target_id=source_target_id,
+            platform=fetch_result["provider"],
+            document_type=fetch_result["resource_type"],
+            source_url=fetch_result.get("normalized_url"),
+            external_id=external_id,
+            http_status=fetch_result.get("status_code"),
+            fetched_at=fetch_result.get("fetched_at"),
+            raw_json=body if isinstance(body, (dict, list)) else None,
+            raw_text=fetch_result.get("response_text"),
+            raw_html=fetch_result.get("response_html"),
+            response_headers=fetch_result.get("response_headers"),
+            source_meta=meta,
+        )

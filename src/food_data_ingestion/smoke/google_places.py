@@ -75,7 +75,6 @@ def build_smoke_service(settings: Settings, *, place_id: str):
     ingestion_service = IngestionService(
         connector=connector,
         crawl_job_repository=CrawlJobRepository(session),
-        cache_repository=cache_repository,
         raw_repository=RawDocumentRepository(session),
         restaurant_repository=RestaurantRepository(session),
         parser=parse_place_detail,

@@ -21,10 +21,10 @@ def build_default_service() -> IngestionService:
     settings = Settings.from_env()
     connection = create_connection(settings)
     session = PsycopgSession(connection)
+    cache_repository = ApiRequestCacheRepository(session)
     return IngestionService(
-        connector=GooglePlacesConnector(settings=settings, cache_repository=ApiRequestCacheRepository(session)),
+        connector=GooglePlacesConnector(settings=settings, cache_repository=cache_repository),
         crawl_job_repository=CrawlJobRepository(session),
-        cache_repository=ApiRequestCacheRepository(session),
         raw_repository=RawDocumentRepository(session),
         restaurant_repository=RestaurantRepository(session),
         parser=parse_place_detail,

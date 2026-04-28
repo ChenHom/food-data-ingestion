@@ -88,7 +88,7 @@ DDL 已建立以下主要表：
 
 - `GooglePlacesConnector` 與對應 parser / ingestion service / smoke command
 - `RawDocumentRepository` / `RestaurantRepository` / `CrawlJobRepository`
-- `CandylifeArticleDiscoveryService`
+- `CandylifeFeedIngestion` / `CandylifeArticleIngestion`（共用 `IngestionContext` primitives）
 - `CandylifeDiscoveryPolicy` / `CandylifeParserProfile`
 - `DiscoveredArticle` / `DiscoveredPlaceCandidate`
 - `UnifiedDiscoveryIngestionService`
@@ -150,7 +150,9 @@ src/food_data_ingestion/
   services/
     __init__.py
     ingestion_service.py
-    article_discovery.py
+    ingestion_context.py
+    google_places_ingestion.py
+    candylife_ingestion.py
   jobs/
     __init__.py
     run_google_places_sync.py

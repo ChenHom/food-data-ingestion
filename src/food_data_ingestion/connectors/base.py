@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Protocol, TypedDict
+from typing import Any, NotRequired, Protocol, TypedDict
+
+from food_data_ingestion.models.cache import ApiRequestCacheEntry
 
 
 class FetchResult(TypedDict):
@@ -14,6 +16,7 @@ class FetchResult(TypedDict):
     response_headers: dict[str, Any] | None
     response_body: dict[str, Any] | list[Any] | None
     response_text: str | None
+    response_html: NotRequired[str | None]
     fetched_at: datetime
     expires_at: datetime
     refresh_after: datetime | None
@@ -24,6 +27,10 @@ class FetchResult(TypedDict):
 
 class CacheRepositoryProtocol(Protocol):
     def get_valid(self, cache_key: str, *, as_of: datetime): ...
+
+    def mark_hit(self, cache_key: str, *, accessed_at: datetime) -> None: ...
+
+    def upsert(self, entry: ApiRequestCacheEntry) -> None: ...
 
 
 class ConnectorProtocol(Protocol):
