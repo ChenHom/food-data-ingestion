@@ -1,7 +1,7 @@
-"""Candylife discovery adapter.
+"""Candylife discovery adapter。
 
-Wraps the existing CandylifeFeedIngestion + CandylifeArticleIngestion flows
-so the runner can treat candylife uniformly with other sources.
+包裝現有的 CandylifeFeedIngestion + CandylifeArticleIngestion 流程，
+讓 runner 可以用統一的方式對待 candylife 與其他來源。
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ class StubCandylifeFetcher:
 
 
 class _FetcherAdapter:
-    """Wrap a duck-typed fetcher (with fetch_feed/fetch_html) so CandylifeConnector can use it."""
+    """包裝一個 duck-typed fetcher（帶有 fetch_feed/fetch_html），讓 CandylifeConnector 可以使用。"""
 
     def __init__(self, inner) -> None:
         self._inner = inner
@@ -72,7 +72,7 @@ def run_candylife_discovery(
     transaction_manager=None,
     source_target: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Run candylife discovery once. Same signature as the legacy job entry."""
+    """執行一次 candylife discovery。與舊版 job entry 的 signature 相同。"""
     crawl_policy = (source_target or {}).get('crawl_policy') or {}
     effective_min_year = int(crawl_policy.get('min_year', min_year))
     effective_limit = int(crawl_policy.get('limit', limit))

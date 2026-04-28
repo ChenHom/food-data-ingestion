@@ -1,14 +1,14 @@
-"""Per-source flow classes for the Supertaste pipeline.
+"""Supertaste pipeline 各來源的 flow class。
 
-Two flows, each owning their own crawl_session via the shared IngestionContext:
+兩個 flow，各自透過共用的 IngestionContext 擁有自己的 crawl_session：
 
-  - SupertasteSitemapIngestion: runs once per crawl, fetches the sitemap index
-    + each child article sitemap, returns the merged + filtered list of
-    SupertasteSitemapEntry (caller decides which to dispatch).
-  - SupertasteArticleIngestion: per article — fetch JSON, store raw_json,
-    parse, extract candidates from info_card_app, persist candidates.
+  - SupertasteSitemapIngestion：每次 crawl 跡一次，fetch sitemap index +
+    每個子層的 article sitemap，回傳合併 + 過濾後的 SupertasteSitemapEntry 清單
+    （呼叫端決定要 dispatch 哪些）。
+  - SupertasteArticleIngestion：以 article 為單位 — fetch JSON、寫入 raw_json、
+    解析、從 info_card_app 內抽出 candidate、寫入 candidate。
 
-Mirrors `services/candylife_ingestion.py` so the architecture stays uniform.
+與 `services/candylife_ingestion.py` 對應，讓架構保持一致。
 """
 
 from __future__ import annotations
@@ -68,12 +68,11 @@ class ArticleIngestionResult:
 
 
 class SupertasteSitemapIngestion:
-    """Fetch the sitemap index + each child article sitemap, return all entries.
+    """Fetch sitemap index + 各個子層的 article sitemap，回傳所有 entry。
 
-    Only one crawl_job is opened (job_type='sitemap_index'); per-child sitemap
-    fetches reuse the same job and write one raw_document for the index plus
-    one per child sitemap. This keeps job-count proportional to discovery
-    rounds rather than sitemap fan-out.
+    只會開一個 crawl_job（job_type='sitemap_index'）；子層的每個 sitemap fetch
+    都重用同一個 job，並在 index 上寫一筆 raw_document，子層的每個 sitemap 另寫一筆。
+    這讓 job 數量與 discovery 輪次成正比，而不是與 sitemap fan-out 成正比。
     """
 
     PLATFORM = "supertaste"
@@ -138,10 +137,9 @@ class SupertasteSitemapIngestion:
             child_urls = parse_supertaste_sitemap_index(
                 index_fetch.get("response_text") or ""
             )
-            # Sitemap files are numbered oldest→newest (article_sitemap_1 is the
-            # oldest archive, ~2017). Reverse so newest articles—where the
-            # info_card_app HTML structure actually exists—are processed first.
-            # This dramatically lifts candidate yield when callers pass --limit.
+            # Sitemap 檔案的編號是最舊→最新（article_sitemap_1 是最舊的歸檔，大約在 2017）。
+            # 反轉順序，讓最新的 article — 也就是 info_card_app HTML 結構實際存在的那批 — 先被處理。
+            # 當呼叫端傳 --limit 時，這一反轉可以大幅提高 candidate 的產出量。
             child_urls = tuple(reversed(child_urls))
             if max_sitemaps is not None:
                 child_urls = child_urls[:max_sitemaps]
@@ -286,9 +284,9 @@ class SupertasteArticleIngestion:
                 )
                 if self.ctx.transaction_manager is not None:
                     self.ctx.transaction_manager.commit()
-            # If raw_id is None (cache hit) we skip candidate persistence: the
-            # earlier successful run already wrote the candidates, and writing
-            # again with a fake raw_document_id=0 would trip the FK.
+            # 若 raw_id 是 None（cache hit）則跳過 candidate 久久保存：
+            # 之前成功跨出的那次已經寫了 candidates，重複使用假的
+            # raw_document_id=0 會要不到 FK。
 
             captured.update(
                 raw_document_id=raw_id,

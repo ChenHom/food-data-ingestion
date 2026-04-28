@@ -23,7 +23,7 @@ class FakeSession:
 
 
 def test_crawl_job_create_rejects_invalid_status():
-    with pytest.raises(ValueError, match="invalid crawl job status"):
+    with pytest.raises(ValueError, match="無效的 crawl job"):
         CrawlJobCreate(platform="google_places", job_type="place_detail", status="queued")
 
 

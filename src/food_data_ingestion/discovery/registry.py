@@ -1,10 +1,10 @@
-"""Adapter factory + default registry.
+"""Adapter factory 與預設 registry。
 
-Adding a new public source means:
-  1. Implement a `DiscoveryAdapterProtocol` under `discovery/sources/<name>.py`
-  2. Provide a `build_<name>_adapter(ctx)` builder
-  3. Register it in `DEFAULT_FACTORY`
-No new `jobs/run_<name>.py` script is required.
+新增一個公開 source 的步驟：
+  1. 在 `discovery/sources/<name>.py` 下實作一個 `DiscoveryAdapterProtocol`
+  2. 提供 `build_<name>_adapter(ctx)` builder
+  3. 在 `DEFAULT_FACTORY` 裡註冊
+不需要另外寫一個 `jobs/run_<name>.py` script。
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ class DiscoveryAdapterFactory:
         try:
             builder = self.builders[platform]
         except KeyError as exc:
-            raise KeyError(f"no discovery adapter registered for platform={platform!r}") from exc
+            raise KeyError(f"尚未為 platform={platform!r} 註冊任何 discovery adapter") from exc
         return builder(ctx)
 
     def register(self, platform: str, builder: AdapterBuilder) -> None:

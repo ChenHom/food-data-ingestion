@@ -1,11 +1,11 @@
-"""Parsers for supertaste.tvbs.com.tw sitemaps.
+"""針對 supertaste.tvbs.com.tw sitemap 的 parser。
 
-Two stages:
+分為兩個階段：
   1. parse_supertaste_sitemap_index(xml) -> tuple[str, ...]
-     Returns child sitemap URLs, optionally filtered to article sitemaps.
+     回傳子 sitemap 的 URL，可以只保留 article sitemap。
   2. parse_supertaste_sitemap(xml) -> tuple[SupertasteSitemapEntry, ...]
-     Each <url> in an article sitemap becomes an entry with category + id parsed
-     from the URL path (e.g. /pack/348872 -> category='pack', article_id='348872').
+     article sitemap 裡的每個 <url> 都會變成一個 entry，category 與 article id
+     是從 URL 路徑解析出來（例如 /pack/348872 -> category='pack', article_id='348872'）。
 """
 
 from __future__ import annotations
@@ -39,10 +39,9 @@ class SupertasteSitemapEntry:
 
 
 def parse_supertaste_sitemap_index(xml_text: str, *, only_article: bool = True) -> tuple[str, ...]:
-    """Parse the top-level sitemap index, returning child sitemap URLs.
+    """解析最上層的 sitemap index，回傳子 sitemap 的 URL。
 
-    By default keeps only article_sitemap_*.xml entries since those are the
-    ones that list article URLs we care about.
+    預設只保留 article_sitemap_*.xml，因為這些才是列出我們在意的 article URL 的 sitemap。
     """
     root = ET.fromstring(xml_text.lstrip())
     urls: list[str] = []
@@ -58,9 +57,9 @@ def parse_supertaste_sitemap_index(xml_text: str, *, only_article: bool = True) 
 
 
 def parse_supertaste_sitemap(xml_text: str) -> tuple[SupertasteSitemapEntry, ...]:
-    """Parse an article sitemap into typed entries.
+    """將 article sitemap 解析為 typed entry。
 
-    Skips entries whose path does not match the /<category>/<id> pattern.
+    路徑不符合 /<category>/<id> 型態的 entry 會被跳過。
     """
     root = ET.fromstring(xml_text.lstrip())
     entries: list[SupertasteSitemapEntry] = []
@@ -85,7 +84,7 @@ def parse_supertaste_sitemap(xml_text: str) -> tuple[SupertasteSitemapEntry, ...
 
 
 def _extract_path(url: str) -> str:
-    # Strip scheme://host
+    # 拿掉 scheme://host
     no_scheme = url.split("://", 1)[-1]
     slash = no_scheme.find("/")
     return no_scheme[slash:] if slash >= 0 else "/"

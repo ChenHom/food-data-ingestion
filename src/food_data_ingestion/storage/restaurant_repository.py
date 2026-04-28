@@ -127,7 +127,7 @@ class RestaurantRepository:
                 ),
             )
             if not row or "id" not in row:
-                raise RuntimeError("failed to create restaurant")
+                raise RuntimeError("建立 restaurant 失敗")
             restaurant_id = int(row["id"])
 
         for ref in parsed.external_refs:

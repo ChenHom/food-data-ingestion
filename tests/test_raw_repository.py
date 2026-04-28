@@ -42,7 +42,7 @@ def test_build_content_hash_falls_back_to_text():
 
 
 def test_raw_document_create_requires_any_raw_content():
-    with pytest.raises(ValueError, match="at least one raw payload"):
+    with pytest.raises(ValueError, match="至少需要一筆 raw payload"):
         RawDocumentCreate(platform="google_places", document_type="place_detail")
 
 

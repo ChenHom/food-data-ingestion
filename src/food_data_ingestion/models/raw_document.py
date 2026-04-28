@@ -70,9 +70,9 @@ class RawDocumentCreate:
 
     def __post_init__(self) -> None:
         if self.raw_html is None and self.raw_text is None and self.raw_json is None:
-            raise ValueError("RawDocumentCreate requires at least one raw payload")
+            raise ValueError("RawDocumentCreate 至少需要一筆 raw payload")
         if self.parse_status not in RAW_PARSE_STATUSES:
-            raise ValueError(f"invalid raw parse status: {self.parse_status}")
+            raise ValueError(f"無效的 raw parse 狀態：{self.parse_status}")
         if self.content_hash is None:
             object.__setattr__(
                 self,

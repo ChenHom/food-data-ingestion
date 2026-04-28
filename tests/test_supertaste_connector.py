@@ -123,6 +123,6 @@ def test_fetch_article_decodes_json_into_response_body_and_uses_article_ttl():
     assert result["response_body"]["data"]["articles_id"] == "348872"
     assert result["response_text"] is None
     assert result["expires_at"] == NOW + timedelta(seconds=60)
-    # Cache row should hold the decoded JSON, not the raw text
+    # Cache row 應該裝著解碼後的 JSON，而不是 raw 文字
     assert cache.upserts[0].response_body == {"data": {"articles_id": "348872", "title": "x"}}
     assert cache.upserts[0].response_text is None

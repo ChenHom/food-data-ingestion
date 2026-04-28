@@ -7,12 +7,12 @@ from psycopg.rows import dict_row
 
 
 class PsycopgSession:
-    """Wraps a psycopg v3 connection and provides a dict-oriented query interface.
+    """包裝 psycopg v3 connection，提供以 dict 為導向的查詢介面。
 
-    Responsibilities:
-    - Translate SQL results to ``dict[str, Any]``
-    - Expose ``fetchone``, ``fetchall``, ``execute``, and ``execute_returning``
-    - Expose ``commit`` / ``rollback`` so service / command layer can define transaction boundaries
+    職責：
+    - 將 SQL 結果轉換為 ``dict[str, Any]``
+    - 對外提供 ``fetchone``、``fetchall``、``execute``、``execute_returning``
+    - 對外提供 ``commit`` / ``rollback``，讓 service / command 層能定義 transaction 邊界
     """
 
     def __init__(self, connection: psycopg.Connection) -> None:

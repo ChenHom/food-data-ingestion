@@ -55,8 +55,8 @@ class SourceTargetRepository:
         platforms: list[str] | tuple[str, ...] | None = None,
         exclude_ids: list[int] | tuple[int, ...] | None = None,
     ) -> list[dict[str, Any]]:
-        """List enabled source_targets, optionally filtered by platform allowlist
-        and excluding specified ids."""
+        """列出啟用的 source_target，可透過 platform allowlist 過濾，
+        並排除指定的 id。"""
         clauses = ["enabled = TRUE"]
         params: list[Any] = []
         if platforms:

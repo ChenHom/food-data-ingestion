@@ -33,7 +33,7 @@ def test_extract_pack_article_metadata_and_candidates():
     assert sample.tags and "美食" in sample.tags
     assert sample.source_url == extraction.source_url
 
-    # First card: 小麥所居酒屋/旬味小肴 公益店 — has address + phone in fixture
+    # 第一張 card：小麥所居酒屋/旬味小肴 公益店 — fixture 裡有 address + phone
     first = by_id["33368"]
     assert first.name.startswith("小麥所居酒屋")
     assert first.address == "台中市南屯區公益路二段37號"
@@ -44,7 +44,7 @@ def test_extract_supports_explicit_source_url_override():
     payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
     extraction = extract_supertaste_article(payload, source_url="https://example/override")
     assert extraction.source_url == "https://example/override"
-    # candidates carry the same source_url
+    # candidate 携帶相同的 source_url
     assert all(c.source_url == "https://example/override" for c in extraction.candidates)
 
 

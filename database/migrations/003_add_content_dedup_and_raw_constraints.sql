@@ -1,4 +1,4 @@
--- food-data-ingestion v1 follow-up
+-- food-data-ingestion v1 後續調整
 -- 目標：補強 raw_documents 與 contents 的資料品質保護
 
 ALTER TABLE ingestion.raw_documents

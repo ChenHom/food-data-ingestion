@@ -73,5 +73,5 @@ class RawDocumentRepository:
             ),
         )
         if not row or "id" not in row:
-            raise RuntimeError("failed to create raw document")
+            raise RuntimeError("建立 raw document 失敗")
         return int(row["id"])

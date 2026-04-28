@@ -98,12 +98,12 @@ def test_create_connection_error_message_does_not_include_password():
 
 
 # ---------------------------------------------------------------------------
-# PsycopgSession — helpers to build a mock connection
+# PsycopgSession — 建立 mock connection 的 helper
 # ---------------------------------------------------------------------------
 
 
 def _make_cursor(rows=None, single_row=None):
-    """Return a mock cursor context manager that yields a mock cursor."""
+    """回傳一個會 yield mock cursor 的 cursor context manager。"""
     mock_cursor = MagicMock()
     mock_cursor.fetchone.return_value = single_row
     mock_cursor.fetchall.return_value = rows or []
@@ -228,18 +228,18 @@ def test_execute_returning_returns_none_when_no_row():
 
 
 # ---------------------------------------------------------------------------
-# SessionProtocol compatibility
+# SessionProtocol 相容性
 # ---------------------------------------------------------------------------
 
 
 def test_psycopg_session_is_compatible_with_session_protocol():
-    """PsycopgSession must satisfy the SessionProtocol used by repositories."""
+    """PsycopgSession 必須滿足 repository 使用的 SessionProtocol。"""
     import inspect
     from food_data_ingestion.storage.cache_repository import SessionProtocol
 
     session = PsycopgSession(MagicMock())
 
-    # Verify required methods exist and have compatible signatures
+    # 驗證必要方法存在且簽名相容
     for method_name in ("fetchone", "execute"):
         assert hasattr(session, method_name), f"missing method: {method_name}"
         assert callable(getattr(session, method_name))

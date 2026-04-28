@@ -1,18 +1,18 @@
-"""Unified discovery runner.
+"""統一的 discovery runner。
 
-Replaces per-source `run_<x>_discovery.py` scripts. Picks adapters via the
-registry, fans out across source_targets in parallel using ThreadPoolExecutor
-(each worker gets its own DB connection), and collects per-target results.
+取代那些各來源一個的 `run_<x>_discovery.py` script。透過 registry 取得 adapter，
+使用 ThreadPoolExecutor 平行出多個 source_target（每個 worker 有自己的 DB connection），
+並收集每個 target 的執行結果。
 
-CLI flags are intentionally minimal:
-  --platform                  : restrict which platforms run (repeatable; default = all registered)
-  --exclude-source-target-id  : ids to skip (repeatable)
-  --max-workers               : cross-source parallelism (default 4)
-  --use-stub-fetcher          : force stub fetchers (existing behaviour)
-  --write-db                  : persist via DB-backed repos (no-op in pure stub mode)
+CLI flag 刻意保持最少：
+  --platform                  : 限定要跑哪些 platform（可重複；預設 = 所有已註冊的）
+  --exclude-source-target-id  : 要跳過的 id（可重複）
+  --max-workers               : 跨來源的平行度（預設 4）
+  --use-stub-fetcher          : 強制使用 stub fetcher（保留舊行為）
+  --write-db                  : 透過 DB-backed repo 轉為久久保存（純 stub 模式下無作用）
 
-Per-source knobs (min_year, limit, max_sitemaps, ...) belong in
-`source_targets.crawl_policy` JSONB; the runner does not know them.
+來源個別的設定（min_year、limit、max_sitemaps…）應該寫在
+`source_targets.crawl_policy` JSONB；runner 不該認識這些。
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ def _resolve_platforms(
         return available
     unknown = [p for p in requested if p not in available]
     if unknown:
-        raise SystemExit(f"unknown platform(s): {unknown}; registered: {available}")
+        raise SystemExit(f"未註冊的 platform：{unknown}；已註冊：{available}")
     return list(requested)
 
 
@@ -53,14 +53,14 @@ def _resolve_targets(
     write_db: bool,
     settings: Settings | None,
 ) -> tuple[list[dict[str, Any]], Any | None]:
-    """Return (tasks, lookup_connection).
+    """回傳 (tasks, lookup_connection)。
 
-    Each task is a dict with at least {"platform", "source_target"}. When
-    write_db is False AND no DB connection is needed, source_target may be None
-    (the adapter will fall back to its own defaults).
+    每個 task 是一個至少包含 {"platform", "source_target"} 的 dict。當
+    write_db 為 False 且不需要 DB connection 時，source_target 可以是 None
+    （adapter 會回退使用自己的預設值）。
     """
     if not write_db:
-        # Stub / dry-run mode: synthesise one task per requested platform.
+        # Stub / dry-run 模式：針對每個請求的 platform 各自合成一個 task。
         return [{"platform": p, "source_target": None} for p in platforms], None
 
     if settings is None:
@@ -73,7 +73,7 @@ def _resolve_targets(
     connection.close()
 
     if not rows:
-        # No DB targets configured yet; still let each platform run with defaults.
+        # 尚未在 DB 設定任何 target；仍然讓每個 platform 以預設值執行。
         return [{"platform": p, "source_target": None} for p in platforms], None
 
     return [{"platform": row["platform"], "source_target": row} for row in rows], None
@@ -88,7 +88,7 @@ def _run_one(
     write_db: bool,
     settings: Settings | None,
 ) -> dict[str, Any]:
-    """Execute a single (platform, source_target) task in this worker thread."""
+    """在這個 worker thread 上執行一個 (platform, source_target) task。"""
     adapter = factory.build(platform, build_ctx)
     connection = None
     try:
@@ -134,17 +134,17 @@ def _run_one(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run discovery for all registered public sources in parallel.")
+    parser = argparse.ArgumentParser(description="平行執行所有已註冊公開來源的 discovery。")
     parser.add_argument("--platform", action="append", default=None,
-                        help="Restrict to this platform (repeatable). Default: all registered.")
+                        help="限定要跑的 platform（可重複）。預設：所有已註冊的。")
     parser.add_argument("--exclude-source-target-id", action="append", type=int, default=None,
-                        help="source_target id to skip (repeatable).")
+                        help="要跳過的 source_target id（可重複）。")
     parser.add_argument("--max-workers", type=int, default=4,
-                        help="Cross-source parallelism (default 4).")
+                        help="跨來源的平行度（預設 4）。")
     parser.add_argument("--use-stub-fetcher", action="store_true",
-                        help="Force every adapter to use its stub fetcher.")
+                        help="強制每個 adapter 都使用其 stub fetcher。")
     parser.add_argument("--write-db", action="store_true",
-                        help="Persist via DB-backed repositories.")
+                        help="透過 DB-backed repository 久久保存。")
     args = parser.parse_args(argv)
 
     factory = DEFAULT_FACTORY

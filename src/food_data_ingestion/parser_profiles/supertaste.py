@@ -1,4 +1,4 @@
-"""Discovery policy + parser profile for supertaste."""
+"""針對 supertaste 的 discovery policy 與 parser profile。"""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from food_data_ingestion.parsers.supertaste import SupertasteArticleExtraction
 from food_data_ingestion.parsers.supertaste_sitemap import SupertasteSitemapEntry
 
 
-# Supertaste article kinds — kept distinct from candylife's so they evolve
-# independently. Stored as plain strings to avoid DB schema coupling.
+# Supertaste 的 article kind — 與 candylife 的刻意分開，讓兩邊可以獨立演進。
+# 以純字串儲存以避免與 DB schema 耦合。
 ARTICLE_KIND_SINGLE = "single_store"
 ARTICLE_KIND_ROUNDUP = "roundup"
 
@@ -37,13 +37,13 @@ class SupertasteDiscoveryPolicy:
 
 
 def classify_article_kind(*, category: str, title: str) -> str:
-    """Heuristic: 'pack' is roundup; 'food' default single, override on hint."""
+    """啟發式判斷：'pack' 一律归為 roundup；'food' 預設為 single，但標題帶提示詞時覆寫。"""
     if category == "pack":
         return ARTICLE_KIND_ROUNDUP
     if any(hint in title for hint in ROUNDUP_TITLE_HINTS):
         return ARTICLE_KIND_ROUNDUP
     if _ROUNDUP_COUNT_RE.search(title):
-        # e.g. "5間燒肉" / "10家餐廳"
+        # 例如 "5間燒肉" / "10家餐廳"
         return ARTICLE_KIND_ROUNDUP
     return ARTICLE_KIND_SINGLE
 

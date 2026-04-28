@@ -15,7 +15,7 @@ CANDYLIFE_FEED_RESOURCE = "feed"
 CANDYLIFE_ARTICLE_RESOURCE = "article"
 DEFAULT_FEED_URL = "https://candylife.tw/feed/"
 
-# TTL defaults: feed refreshed hourly; articles cached for a week.
+# TTL 預設值：feed 每小時重新整理一次；article 快取一週。
 DEFAULT_FEED_TTL_SECONDS = 3600
 DEFAULT_ARTICLE_TTL_SECONDS = 7 * 86400
 
@@ -73,7 +73,7 @@ def _resolve_ttl(default_seconds: int, *, crawl_policy: dict[str, Any] | None) -
 
 
 class CandylifeConnector:
-    """High-level connector that adds cache + FetchResult contract to CandylifeLiveFetcher."""
+    """高階 connector：在 CandylifeLiveFetcher 之上加入 cache 與 FetchResult 契約。"""
 
     def __init__(
         self,

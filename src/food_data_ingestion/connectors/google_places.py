@@ -317,7 +317,7 @@ class GooglePlacesConnector:
             if isinstance(err, dict):
                 error_message = err.get("message")
         if is_error and error_message is None:
-            error_message = f"google places request failed: status={status_code}"
+            error_message = f"Google Places 請求失敗：status={status_code}"
 
         source_meta = {"cache_hit": False, "request_fingerprint": request_fingerprint}
         self.cache_repository.upsert(

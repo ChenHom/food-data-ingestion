@@ -1,10 +1,10 @@
-"""Parser for supertaste.tvbs.com.tw article JSON.
+"""針對 supertaste.tvbs.com.tw article JSON 的 parser。
 
-Input: the JSON body returned by `GET /api/article/{cat_en_name}/{id}`.
-Output: SupertasteArticleExtraction with shop candidates extracted from the
-`info_card_app coupon` blocks embedded in `data.article_content.value`.
+輸入：`GET /api/article/{cat_en_name}/{id}` 回傳的 JSON body。
+輸出：SupertasteArticleExtraction，內含從 `data.article_content.value` 內的
+`info_card_app coupon` 區塊抽取出來的店家 candidate。
 
-Each shop block has stable HTML attributes:
+每個店家區塊都有固定的 HTML 屬性：
   <div class="info_card_app coupon" data-store_id="..." data-store_name="..."
        data-tag="..." data-keyword="...">
     ...
@@ -12,8 +12,7 @@ Each shop block has stable HTML attributes:
     <button class="call tel" data-tel="04-XXXXXXXX">
   </div>
 
-Address and phone are best-effort and may be missing — extraction never drops
-a candidate just because of missing optional fields.
+Address 與 phone 都是 best-effort 抽取，可能缺少 — 抽取流程不會只因為選填欄位缺少就丟掉 candidate。
 """
 
 from __future__ import annotations
@@ -102,11 +101,10 @@ def _split_csv(value: Any) -> tuple[str, ...]:
 
 
 class _InfoCardCollector(HTMLParser):
-    """Collect each `info_card_app coupon` div as a flat dict of attrs + body text spans.
+    """將每個 `info_card_app coupon` div 收集成一個扁平的 dict，包含屬性與 body 內的文字。
 
-    We don't try to fully reconstruct nested HTML — we only need the
-    `store-address` paragraph text and `call tel` data-tel attribute for the
-    optional fields. Everything else comes from the div's own attributes.
+    我們不打算重現下嵌套的 HTML — 只需要 `store-address` 裡的段落文字以及
+    `call tel` 的 data-tel 屬性來填選填欄位。其他資訊都來自 div 本身的屬性。
     """
 
     VOID_TAGS = {
@@ -139,10 +137,10 @@ class _InfoCardCollector(HTMLParser):
         if self._current is None:
             return
         if tag in self.VOID_TAGS:
-            # Capture phone from void <input>/<img> elements that carry data-tel,
-            # and capture phone from `call tel` buttons elsewhere — keep simple.
+            # 從 void 的 <input>/<img> 取得 phone（它們可能帶有 data-tel），
+            # 其他地方則從 `call tel` button 取 phone — 保持簡單。
             return
-        # Inside an active card
+        # 位於一個 active 的 card 內部
         self._depth += 1
         css_class = (attr_map.get("class") or "")
         if tag == "div" and "store-address" in css_class.split() and self._current.get("address") is None:
@@ -154,7 +152,7 @@ class _InfoCardCollector(HTMLParser):
             if tel and self._current.get("phone") is None:
                 self._current["phone"] = tel
         elif tag == "p" and self._in_address and not self._current.get("address"):
-            # the FIRST <p> inside store-address holds the address
+            # store-address 裡的第一個 <p> 里面裝的就是地址
             self._address_buf = []
 
     def handle_endtag(self, tag: str):
@@ -184,8 +182,8 @@ class _InfoCardCollector(HTMLParser):
         return "info_card_app" in css and "coupon" in css
 
 
-# Some article bodies have stray text that breaks the strict parser; fall back
-# to a regex scan if needed (the structured div is highly regular).
+# 某些 article body 中間夸雜了多餘文字，會讓嚴格版的 parser 出錯；需要時回退使用
+# regex 掃描（所幸這個結構化的 div 內容很規則）。
 _INFO_CARD_RE = re.compile(
     r'<div class="info_card_app coupon"([^>]*)>',
     re.IGNORECASE,
@@ -204,7 +202,7 @@ def _extract_candidates_from_html(html: str, *, source_url: str) -> tuple[Supert
         parser.cards = []
 
     if not parser.cards:
-        # Regex fallback — covers attribute-only extraction (no address/phone).
+        # Regex fallback — 只能抽出屬性部分（拿不到 address/phone）。
         for match in _INFO_CARD_RE.finditer(html):
             attrs = dict(_ATTR_RE.findall(match.group(1)))
             if not attrs.get("store_id"):

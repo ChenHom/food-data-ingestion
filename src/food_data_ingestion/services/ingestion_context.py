@@ -1,14 +1,14 @@
-"""IngestionContext: orchestration primitives shared across pipelines.
+"""IngestionContext：跨 pipeline 共用的 orchestration primitive。
 
-Provides:
-- `crawl_session(...)`: context manager that owns lock + crawl_job lifecycle +
-  transaction commit/rollback + mark_running/success/failed/skipped.
-- `store_raw_from_fetch(...)`: helper that turns a FetchResult into a
-  raw_document row when (and only when) it represents fresh data.
+提供：
+- `crawl_session(...)`：context manager，負責 lock + crawl_job lifecycle +
+  transaction commit/rollback + mark_running/success/failed/skipped。
+- `store_raw_from_fetch(...)`：helper，在（且僅在） FetchResult 代表新資料時
+  將其轉為一筆 raw_document。
 
-A per-source "ingestion flow" class composes these primitives instead of
-re-implementing them. Behaviour is byte-compatible with the original
-IngestionService.ingest_google_place_detail loop so existing tests keep passing.
+各來源的「ingestion flow」類別組合這些 primitive而不是重新實作。行為與
+原本的 IngestionService.ingest_google_place_detail 迴圈 byte-compatible，
+讓現有的測試仍能通過。
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from food_data_ingestion.models.raw_document import RawDocumentCreate
 
 
 class CrawlLockedError(RuntimeError):
-    """Raised by crawl_session when an advisory lock cannot be acquired."""
+    """當 advisory lock 無法取得時，由 crawl_session 拋出。"""
 
 
 class CrawlJobRepositoryProtocol(Protocol):
@@ -70,11 +70,10 @@ class AdvisoryLockManagerProtocol(Protocol):
 
 @dataclass
 class CrawlSession:
-    """State carried through a crawl_session block.
+    """負責在 crawl_session 區塊內携帶的狀態。
 
-    The flow code mutates `success_stats` as work progresses; on success the
-    context records them, on failure it records `failure_stats` (which the
-    flow can also pre-populate with whatever counters are meaningful).
+    flow code 會隨著作業進度變動 `success_stats`；成功時 context 會記錄它們，
+    失敗時則記錄 `failure_stats`（flow 也可以預先幫它填入任何有意義的計數器）。
     """
 
     job_id: int
@@ -184,7 +183,7 @@ class IngestionContext:
         extra_source_meta: dict[str, Any] | None = None,
         commit: bool = True,
     ) -> int | None:
-        """Persist a raw_document for a fresh fetch. Returns None on cache hit."""
+        """為一次新 fetch 寫入一筆 raw_document。遇到 cache hit 時回傳 None。"""
         if bool(fetch_result.get("source_meta", {}).get("cache_hit")):
             return None
         raw_id = self.raw_repository.create(

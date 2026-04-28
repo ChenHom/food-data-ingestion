@@ -149,12 +149,12 @@ def test_sitemap_ingestion_fetches_index_then_each_child_and_filters_categories(
     flow = SupertasteSitemapIngestion(ctx=ctx, connector=connector)
     result = flow.ingest(max_sitemaps=2)
 
-    # index + 2 child sitemaps fetched
+    # index + 2 個子層 sitemap 被 fetch
     assert connector.index_calls == [None]
     assert len(connector.child_calls) == 2
     # raw_documents = 1 index + 2 children
     assert len(ctx.raw_repository.payloads) == 3
-    # default policy keeps food/pack only — sample has 1 food entry
+    # 預設 policy 只保留 food/pack — 樣本裡有 1 筆 food entry
     cats = {e.category for e in result.entries}
     assert cats == {"food"}
     assert result.sitemap_count == 2
@@ -216,5 +216,5 @@ def test_article_ingestion_cache_hit_skips_raw_persist_but_still_runs_parser():
     assert result.cache_hit is True
     assert result.raw_document_id is None
     assert ctx.raw_repository.payloads == []
-    # candidates still extracted + persisted from cached payload
+    # candidate 仍然從被快取的 payload 裡被抽出並寫入
     assert result.candidate_count == 41

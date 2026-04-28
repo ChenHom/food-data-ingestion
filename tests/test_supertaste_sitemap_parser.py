@@ -37,6 +37,6 @@ def test_parse_article_sitemap_extracts_category_and_id():
     assert first.category == "hot"
     assert first.article_id == "322011"
     assert first.lastmod == "2020-04-16T11:24:46+08:00"
-    # Categories observed in fixture
+    # fixture 裡觀察到的分類
     cats = {e.category for e in entries}
     assert cats == {"hot", "travel", "food"}

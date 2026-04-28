@@ -147,7 +147,7 @@ def test_from_row_ignores_extra_db_columns():
         "is_error": False,
         "error_message": None,
         "source_meta": {},
-        # extra columns returned by DB that are not in the model
+        # DB 多回傳、不在 model 裡的欄位
         "created_at": now - timedelta(hours=1),
         "updated_at": now - timedelta(minutes=10),
     }

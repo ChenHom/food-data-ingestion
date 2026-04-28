@@ -1,10 +1,10 @@
-"""Per-source flow classes for the Candylife pipeline.
+"""Candylife pipeline 各來源的 flow class。
 
-Both feed and article ingestion now use the shared `IngestionContext`:
+Feed 與 article 兩個 ingestion 現在都走共用的 `IngestionContext`：
   - lock + crawl_job lifecycle
   - transaction commit/rollback
-  - raw_documents persistence
-This puts Candylife on parity with Google Places.
+  - raw_documents 久久保存
+這讓 Candylife 與 Google Places 的處理方式一致。
 """
 
 from __future__ import annotations
@@ -210,9 +210,9 @@ class CandylifeArticleIngestion:
                     )
                 if self.ctx.transaction_manager is not None:
                     self.ctx.transaction_manager.commit()
-            # Cache hit (raw_id is None): skip candidate persistence; the
-            # earlier successful run already wrote them and reusing
-            # raw_document_id=0 would violate the FK.
+            # Cache hit（raw_id 是 None）：跳過 candidate 久久保存，
+            # 之前成功跨出的那次已經寫入，重複使用
+            # raw_document_id=0 會要不到 FK。
 
             captured.update(
                 raw_document_id=raw_id,

@@ -34,4 +34,4 @@ class CrawlJobCreate:
 
     def __post_init__(self) -> None:
         if self.status not in CRAWL_JOB_STATUSES:
-            raise ValueError(f"invalid crawl job status: {self.status}")
+            raise ValueError(f"無效的 crawl job 狀態：{self.status}")

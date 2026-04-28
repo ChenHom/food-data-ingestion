@@ -1,12 +1,12 @@
-"""Supertaste TVBS connector.
+"""Supertaste TVBS connector。
 
-Provides three cache-backed fetch methods returning a `FetchResult`:
-  - fetch_sitemap_index() — root sitemap index XML
-  - fetch_sitemap(url)     — a child article sitemap XML
-  - fetch_article(category, article_id) — JSON via /api/article/{cat}/{id}
+提供三個走 cache 的 fetch 方法，回傳 `FetchResult`：
+  - fetch_sitemap_index() — 根層 sitemap index XML
+  - fetch_sitemap(url)     — 子層 article sitemap XML
+  - fetch_article(category, article_id) — 透過 /api/article/{cat}/{id} 取得 JSON
 
-Mirrors `connectors/candylife.py`: connector owns cache read+write, with TTLs
-overridable via `crawl_policy={'ttl_seconds': N}`.
+與 `connectors/candylife.py` 對應：connector 自行負責 cache 的讀寫，TTL
+可以透過 `crawl_policy={'ttl_seconds': N}` 覆寫。
 """
 
 from __future__ import annotations
@@ -89,7 +89,7 @@ def _resolve_ttl(default_seconds: int, *, crawl_policy: dict[str, Any] | None) -
 
 
 class SupertasteConnector:
-    """Cache + FetchResult wrapper around SupertasteLiveFetcher."""
+    """圍繞 SupertasteLiveFetcher 的 cache 與 FetchResult 包裝層。"""
 
     def __init__(
         self,
@@ -213,7 +213,7 @@ class SupertasteConnector:
                     response_text = text
             except json.JSONDecodeError as exc:
                 is_error = True
-                error_message = f"json_decode_error: {exc}"
+                error_message = f"json 解析失敗：{exc}"
                 response_text = text
         else:
             response_text = text

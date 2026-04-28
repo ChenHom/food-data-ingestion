@@ -1,9 +1,9 @@
-"""Discovery adapter abstraction.
+"""Discovery adapter 抽象層。
 
-Each public-source discovery flow (candylife / supertaste / ...) is exposed
-as a `DiscoveryAdapterProtocol` implementation. The runner only knows how to
-build adapters via a factory and call `run(source_target=..., deps=...)`,
-so adding a new source no longer requires a new `jobs/run_<x>.py` script.
+每一個公開來源的 discovery 流程（candylife / supertaste / ...）都會以
+`DiscoveryAdapterProtocol` 的形式對外提供。Runner 只需要透過 factory 建立
+adapter 並呼叫 `run(source_target=..., deps=...)`，因此新增一個來源不需要
+另外寫一個 `jobs/run_<x>.py` script。
 """
 
 from __future__ import annotations
@@ -14,10 +14,10 @@ from typing import Any, Protocol
 
 @dataclass
 class DiscoveryDeps:
-    """Repositories + transaction manager wired into a single adapter run.
+    """單次 adapter 執行所需的 repository 與 transaction manager 集合。
 
-    All fields default to None so callers can pass a partial set; adapters
-    fall back to their own in-memory stand-ins when a field is None.
+    所有欄位預設為 None，呼叫端可以只傳入部分欄位；當某個欄位是 None 時，
+    adapter 會自動回退到自己內建的 in-memory 替身。
     """
 
     raw_repository: Any | None = None
@@ -29,10 +29,10 @@ class DiscoveryDeps:
 
 @dataclass
 class BuildContext:
-    """Context passed to adapter builders.
+    """傳遞給 adapter builder 的場景資訊。
 
-    Only flags that influence which fetcher to construct live here; per-target
-    knobs (min_year, limit, ...) come from `source_target.crawl_policy`.
+    這裡只放會影響「要建立哪一種 fetcher」的旗標；個別 target 的調整參數
+    （min_year、limit、...）則由 `source_target.crawl_policy` 提供。
     """
 
     use_stub_fetcher: bool = False
@@ -40,7 +40,7 @@ class BuildContext:
 
 
 class DiscoveryAdapterProtocol(Protocol):
-    """Run discovery for a single source_target (or a default-configured run)."""
+    """針對單一 source_target（或使用預設設定）執行一次 discovery。"""
 
     platform: str
 

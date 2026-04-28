@@ -1,8 +1,8 @@
-"""Shared in-memory fakes + DB-backed factory used by every discovery adapter.
+"""所有 discovery adapter 共用的 in-memory 替身與 DB-backed factory。
 
-Both fakes and `create_db_backed_repositories` were previously copy-pasted
-across the per-source job scripts; centralising them here keeps adapters
-small and ensures every source gets the same wiring.
+這些 in-memory 替身與 `create_db_backed_repositories` 以前是在各 source 的 job script
+裡複製貼上；集中到這裡可以讓 adapter 保持精簡，並確保每個 source 都拿到相同的
+裝配。
 """
 
 from __future__ import annotations
@@ -75,11 +75,11 @@ class InMemoryCacheRepository:
 
 
 def create_db_backed_repositories(connection) -> dict[str, Any]:
-    """Build a full set of DB-backed repos sharing one PsycopgSession.
+    """建立一組共用同一個 PsycopgSession 的 DB-backed repo。
 
-    The session is also returned as ``transaction_manager`` so IngestionContext
-    can commit between crawl_job creation and raw_document inserts (otherwise
-    the FK from raw_documents.crawl_job_id is unsatisfiable).
+    同一個 session 也會成為 ``transaction_manager`` 回傳，讓 IngestionContext 可以
+    在建立 crawl_job 與插入 raw_document 之間 commit（否則
+    raw_documents.crawl_job_id 的 FK 會無法滿足）。
     """
     session = PsycopgSession(connection)
     return {

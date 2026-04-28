@@ -1,7 +1,7 @@
-"""Supertaste discovery adapter.
+"""Supertaste discovery adapter。
 
-Wraps the existing SupertasteSitemapIngestion + SupertasteArticleIngestion
-flows behind the unified DiscoveryAdapterProtocol.
+將現有的 SupertasteSitemapIngestion + SupertasteArticleIngestion 流程
+包裝在統一的 DiscoveryAdapterProtocol 背後。
 """
 
 from __future__ import annotations
@@ -118,7 +118,7 @@ class StubSupertasteFetcher:
 
 
 class _FetcherAdapter:
-    """Wrap a duck-typed fetcher so SupertasteConnector can use it."""
+    """包裝一個 duck-typed fetcher，讓 SupertasteConnector 可以使用。"""
 
     def __init__(self, inner) -> None:
         self._inner = inner
@@ -151,7 +151,7 @@ def run_supertaste_discovery(
     transaction_manager=None,
     source_target: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Run supertaste discovery once. Same signature as the legacy job entry."""
+    """執行一次 supertaste discovery。與舊版 job entry 的 signature 相同。"""
     crawl_policy = (source_target or {}).get("crawl_policy") or {}
     effective_limit = int(crawl_policy.get("limit", limit))
     effective_min_lastmod = crawl_policy.get("min_lastmod", min_lastmod)

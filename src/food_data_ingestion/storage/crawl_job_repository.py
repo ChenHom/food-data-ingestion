@@ -55,7 +55,7 @@ class CrawlJobRepository:
             ),
         )
         if not row or "id" not in row:
-            raise RuntimeError("failed to create crawl job")
+            raise RuntimeError("建立 crawl job 失敗")
         return int(row["id"])
 
     def mark_running(self, job_id: int, *, started_at: datetime, worker_name: str | None = None) -> None:

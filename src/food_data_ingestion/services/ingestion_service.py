@@ -1,9 +1,8 @@
-"""Backward-compatible facade.
+"""向後相容的 facade。
 
-Implementation now lives in `services.ingestion_context` (orchestration
-primitives) and `services.google_places_ingestion` (per-source flow). This
-module keeps the old constructor + method signature so existing callers and
-tests don't have to change.
+實作已經搬到 `services.ingestion_context`（orchestration primitive）與
+`services.google_places_ingestion`（來源個別的 flow）。這個模組保留舊的
+建構子與方法簽名，讓現有的呼叫端與測試不需要跨變動。
 """
 
 from __future__ import annotations

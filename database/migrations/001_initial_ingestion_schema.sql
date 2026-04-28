@@ -97,7 +97,7 @@ CREATE INDEX IF NOT EXISTS idx_ingestion_crawl_jobs_source_target
     ON ingestion.crawl_jobs(source_target_id, created_at DESC);
 
 -- ---------------------------------------------------------
--- 3. Raw layer
+-- 3. Raw 層
 -- ---------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS ingestion.raw_documents (
@@ -153,7 +153,7 @@ CREATE INDEX IF NOT EXISTS idx_ingestion_raw_assets_document
     ON ingestion.raw_assets(raw_document_id, asset_type);
 
 -- ---------------------------------------------------------
--- 4. Structured entity layer
+-- 4. 結構化實體層
 -- ---------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS ingestion.restaurants (
@@ -215,7 +215,7 @@ CREATE INDEX IF NOT EXISTS idx_ingestion_restaurant_aliases_lookup
     ON ingestion.restaurant_aliases(normalized_alias);
 
 -- ---------------------------------------------------------
--- 5. Structured content layer
+-- 5. 結構化 content 層
 -- ---------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS ingestion.contents (
@@ -280,7 +280,7 @@ CREATE INDEX IF NOT EXISTS idx_ingestion_review_aspects_content
     ON ingestion.review_aspects(content_id, aspect_name);
 
 -- ---------------------------------------------------------
--- 6. Tags / taxonomy
+-- 6. Tags / taxonomy（標籤 / 分類體系）
 -- ---------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS ingestion.tags (
@@ -320,7 +320,7 @@ CREATE INDEX IF NOT EXISTS idx_ingestion_content_tags_content
     ON ingestion.content_tags(content_id, tag_id);
 
 -- ---------------------------------------------------------
--- 7. Observability
+-- 7. 可觀測性（Observability）
 -- ---------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS ingestion.ingestion_logs (

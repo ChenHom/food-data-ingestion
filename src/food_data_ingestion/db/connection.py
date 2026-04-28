@@ -21,5 +21,5 @@ def create_connection(settings: Settings) -> psycopg.Connection:
         return psycopg.connect(build_dsn(settings))
     except psycopg.OperationalError as exc:
         raise ConnectionError(
-            f"Failed to connect to PostgreSQL at {settings.db_host}:{settings.db_port} (db={settings.db_name})"
+            f"連線到 PostgreSQL 失敗：{settings.db_host}:{settings.db_port} (db={settings.db_name})"
         ) from exc

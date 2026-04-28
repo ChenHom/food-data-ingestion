@@ -6,11 +6,11 @@ from typing import Any
 
 @dataclass(frozen=True)
 class ParserInput:
-    """Narrow contract a parser actually consumes.
+    """parser 實際需要的精簡契約。
 
-    Decouples parser from persistence model `RawDocumentCreate` so that:
-    - Parsers are not tempted to read crawl_job_id, parse_status, etc.
-    - Parser tests don't have to construct persistence-only fields.
+    將 parser 與持久化模型 `RawDocumentCreate` 解耦，用意在於：
+    - parser 不會被誘惑去讀 crawl_job_id、parse_status 等欄位
+    - parser 的測試不需要凑齊只為了持久化才存在的欄位
     """
 
     raw_json: dict[str, Any] | list[Any] | None = None

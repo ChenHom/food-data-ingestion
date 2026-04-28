@@ -1,4 +1,4 @@
-"""GooglePlacesIngestion: per-source flow that composes IngestionContext primitives."""
+"""GooglePlacesIngestion：走 IngestionContext primitive 的各來源 flow。"""
 
 from __future__ import annotations
 

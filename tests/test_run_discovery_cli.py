@@ -1,9 +1,9 @@
-"""End-to-end CLI smoke tests for the unified discovery runner.
+"""Unified discovery runner 的 end-to-end CLI smoke test。
 
-Replaces the per-source `test_*_cli.py` tests. Verifies:
-- single platform run produces a result with the expected shape
-- multi-platform run (default = all registered) runs them in parallel and
-  collects one result per platform
+取代了各來源的 `test_*_cli.py`。驗證：
+- 單一 platform 跨出符合預期形狀的結果
+- 多 platform（預設是所有已註冊者）跨出時以平行方式跨，
+  每個 platform 都收到一個結果
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ def test_run_discovery_cli_runs_all_registered_platforms_in_parallel():
 
 
 def test_run_discovery_cli_accepts_exclude_source_target_id_flag():
-    # Without --write-db there is no DB lookup so excluded ids are a no-op,
-    # but the flag must still parse and the run must succeed.
+    # 沒有 --write-db 就不會查 DB，所以 exclude id 實際上是 no-op，
+    # 但 flag 仍需能 parse 並讓整個跨次成功。
     data = _run("--platform", "candylife", "--exclude-source-target-id", "999")
     assert data["summary"]["failed"] == 0

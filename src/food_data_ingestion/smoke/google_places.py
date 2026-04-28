@@ -184,7 +184,7 @@ def run_google_places_db_smoke(*, place_id: str = "smoke_place_001", settings: S
             "db_counts": collect_db_counts(session, place_id=place_id),
         }
         if first_exit_code != 0 or second_exit_code != 0:
-            raise RuntimeError(f"smoke CLI failed: first={first_exit_code}, second={second_exit_code}")
+            raise RuntimeError(f"smoke CLI 執行失敗：first={first_exit_code}, second={second_exit_code}")
         return summary
     finally:
         connection.close()
