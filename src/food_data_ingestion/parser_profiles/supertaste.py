@@ -11,7 +11,7 @@ from food_data_ingestion.parsers.supertaste import SupertasteArticleExtraction
 from food_data_ingestion.parsers.supertaste_sitemap import SupertasteSitemapEntry
 
 
-# Supertaste 的 article kind — 與 candylife 的刻意分開，讓兩邊可以獨立演進。
+# Supertaste 的 article kind。
 # 以純字串儲存以避免與 DB schema 耦合。
 ARTICLE_KIND_SINGLE = "single_store"
 ARTICLE_KIND_ROUNDUP = "roundup"
@@ -37,7 +37,7 @@ class SupertasteDiscoveryPolicy:
 
 
 def classify_article_kind(*, category: str, title: str) -> str:
-    """啟發式判斷：'pack' 一律归為 roundup；'food' 預設為 single，但標題帶提示詞時覆寫。"""
+    """啟發式判斷：'pack' 一律為 roundup；'food' 預設為 single，但標題帶提示詞時覆寫。"""
     if category == "pack":
         return ARTICLE_KIND_ROUNDUP
     if any(hint in title for hint in ROUNDUP_TITLE_HINTS):

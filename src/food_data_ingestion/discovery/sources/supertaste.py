@@ -133,7 +133,7 @@ def run_supertaste_discovery(
     transaction_manager=None,
     source_target: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """執行一次 supertaste discovery。與舊版 job entry 的 signature 相同。"""
+    """執行一次 supertaste discovery。"""
     crawl_policy = (source_target or {}).get("crawl_policy") or {}
     effective_limit = int(crawl_policy.get("limit", limit))
     effective_min_lastmod = crawl_policy.get("min_lastmod", min_lastmod)
