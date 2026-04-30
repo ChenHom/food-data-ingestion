@@ -14,3 +14,4 @@
 | 日期 | 主題 | 檔案 |
 |---|---|---|
 | 2026-04-29 | run_discovery.py pipeline 與相關架構研讀 | [2026-04-29-run-discovery-study.md](./2026-04-29-run-discovery-study.md) |
+| 2026-04-29 | Python 語法：dataclass field、ClassVar、yield + contextmanager | [2026-04-29-python-language-basics.md](./2026-04-29-python-language-basics.md) |
